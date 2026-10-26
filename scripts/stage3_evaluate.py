@@ -10,8 +10,9 @@ import numpy as np  # noqa: E402
 import pandas as pd  # noqa: E402
 
 from kronosquant.baselines import BASELINES  # noqa: E402
-from kronosquant.evaluation import actual_paths, baseline_paths, kronos_paths, select_windows  # noqa: E402
-from kronosquant.forecast import ROOT, forecast_window, load_predictor, load_sample_candles  # noqa: E402
+from kronosquant.cache import ForecastCache, run_walk_forward  # noqa: E402
+from kronosquant.evaluation import actual_paths, baseline_paths, paths_from_forecasts, select_windows  # noqa: E402
+from kronosquant.forecast import ROOT, forecast_config, forecast_window, load_predictor, load_sample_candles  # noqa: E402
 from kronosquant.metrics import (  # noqa: E402
     directional_accuracy,
     end_mae,
@@ -38,10 +39,24 @@ print(f"{len(windows)} validation windows, {first} .. {last}, horizon {args.pred
 actual = actual_paths(candles, windows)
 paths = {name: baseline_paths(candles, windows, fn) for name, fn in BASELINES.items()}
 
-predictor = load_predictor(args.device)
+T, TOP_P = 1.0, 0.9
+config = forecast_config(candles, args.device, args.lookback, args.pred_len, T, TOP_P, args.sample_count)
+cache = ForecastCache(ROOT / "outputs" / "cache", config)
+print("cache:", cache.dir)
+predictor = None
+
+
+def forecast_one(w):
+    global predictor
+    if predictor is None:  # load the model only if something is actually missing from the cache
+        predictor = load_predictor(args.device)
+    return forecast_window(predictor, candles, w.origin, w.lookback, w.pred_len, seed=w.origin, T=T, top_p=TOP_P, sample_count=args.sample_count)
+
+
 t0 = time.time()
-paths["kronos"] = kronos_paths(predictor, candles, windows, args.sample_count, forecast_window)
-print(f"Kronos: {len(windows)} forecasts, sample_count={args.sample_count}, {time.time() - t0:.0f}s on {args.device}")
+forecasts = run_walk_forward(windows, cache, forecast_one)
+paths["kronos"] = paths_from_forecasts(candles, windows, forecasts)
+print(f"Kronos: {len(windows)} forecasts ready in {time.time() - t0:.0f}s")
 
 rw_err = np.abs(paths["random_walk"] - actual).mean(axis=1)  # per-window mean abs error of the random walk
 rows = []

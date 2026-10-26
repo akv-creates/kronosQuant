@@ -10,6 +10,7 @@ import torch
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "vendor" / "Kronos"))  # upstream repo is cloned, not pip-installed
 
+from kronosquant.cache import data_fingerprint  # noqa: E402
 from kronosquant.data import load_candles  # noqa: E402
 from model import Kronos, KronosPredictor, KronosTokenizer  # noqa: E402
 
@@ -24,6 +25,25 @@ MAX_CONTEXT = 512
 # 5-minute Alibaba (HK: 09988) candles shipped inside the upstream repo.
 SAMPLE_CSV = ROOT / "vendor" / "Kronos" / "finetune_csv" / "data" / "HK_ali_09988_kline_5min_all.csv"
 FEATURES = ["open", "high", "low", "close", "volume", "amount"]
+
+
+def forecast_config(candles: pd.DataFrame, device: str, lookback: int, pred_len: int, T: float, top_p: float, sample_count: int) -> dict:
+    """Everything that can change a forecast. Its hash names the cache directory."""
+    return {
+        "tokenizer": [TOKENIZER_ID, TOKENIZER_REVISION],
+        "model": [MODEL_ID, MODEL_REVISION],
+        "kronos_commit": (ROOT / "vendor" / "KRONOS_COMMIT").read_text().strip(),
+        "torch": torch.__version__,
+        "device": device,
+        "max_context": MAX_CONTEXT,
+        "lookback": lookback,
+        "pred_len": pred_len,
+        "T": T,
+        "top_p": top_p,
+        "sample_count": sample_count,
+        "seed_policy": "seed = window origin",
+        "data": data_fingerprint(candles),
+    }
 
 
 def set_seed(seed: int) -> None:

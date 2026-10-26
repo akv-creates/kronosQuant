@@ -32,10 +32,6 @@ def baseline_paths(candles: pd.DataFrame, windows: list[Window], baseline) -> np
     return np.stack([baseline(candles["close"].iloc[w.history].to_numpy(), w.pred_len) for w in windows])
 
 
-def kronos_paths(predictor, candles: pd.DataFrame, windows: list[Window], sample_count: int, forecast_fn) -> np.ndarray:
-    """Kronos forecasts as cumulative log-returns. `forecast_fn` is forecast.forecast_window (passed in to keep this module model-free)."""
-    out = []
-    for w in windows:
-        pred = forecast_fn(predictor, candles, w.origin, w.lookback, w.pred_len, seed=w.origin, sample_count=sample_count)
-        out.append(cumulative_log_returns(last_close(candles, w), pred["close"].to_numpy()))
-    return np.stack(out)
+def paths_from_forecasts(candles: pd.DataFrame, windows: list[Window], forecasts: dict[int, pd.DataFrame]) -> np.ndarray:
+    """Turn forecast candles (keyed by window origin) into cumulative log-return paths."""
+    return np.stack([cumulative_log_returns(last_close(candles, w), forecasts[w.origin]["close"].to_numpy()) for w in windows])
