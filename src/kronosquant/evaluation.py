@@ -1,0 +1,41 @@
+"""Stage 3: build evaluation windows and the forecast / actual return paths to compare."""
+import numpy as np
+import pandas as pd
+
+from kronosquant.data import has_gap
+from kronosquant.metrics import cumulative_log_returns
+from kronosquant.splits import Window, make_windows
+
+
+def select_windows(candles: pd.DataFrame, split: range, lookback: int, pred_len: int, n: int) -> list[Window]:
+    """Up to `n` evenly spaced, non-overlapping windows whose forecast period has no time gap.
+
+    Future periods are back to back (step = pred_len) so no two windows share a target candle.
+    Windows that straddle lunch or overnight are dropped: those returns mix in a different process.
+    """
+    windows = [w for w in make_windows(split, lookback, pred_len, step=pred_len) if not has_gap(candles, w.future)]
+    if len(windows) <= n:
+        return windows
+    return [windows[i] for i in np.linspace(0, len(windows) - 1, n).round().astype(int)]
+
+
+def last_close(candles: pd.DataFrame, w: Window) -> float:
+    return float(candles["close"].iloc[w.origin - 1])
+
+
+def actual_paths(candles: pd.DataFrame, windows: list[Window]) -> np.ndarray:
+    """(windows, horizon) cumulative log-returns that really happened."""
+    return np.stack([cumulative_log_returns(last_close(candles, w), candles["close"].iloc[w.future].to_numpy()) for w in windows])
+
+
+def baseline_paths(candles: pd.DataFrame, windows: list[Window], baseline) -> np.ndarray:
+    return np.stack([baseline(candles["close"].iloc[w.history].to_numpy(), w.pred_len) for w in windows])
+
+
+def kronos_paths(predictor, candles: pd.DataFrame, windows: list[Window], sample_count: int, forecast_fn) -> np.ndarray:
+    """Kronos forecasts as cumulative log-returns. `forecast_fn` is forecast.forecast_window (passed in to keep this module model-free)."""
+    out = []
+    for w in windows:
+        pred = forecast_fn(predictor, candles, w.origin, w.lookback, w.pred_len, seed=w.origin, sample_count=sample_count)
+        out.append(cumulative_log_returns(last_close(candles, w), pred["close"].to_numpy()))
+    return np.stack(out)

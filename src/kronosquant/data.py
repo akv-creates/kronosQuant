@@ -51,3 +51,9 @@ def load_candles(path: Path) -> pd.DataFrame:
     df["timestamps"] = pd.to_datetime(df["timestamps"])
     df = df.sort_values("timestamps").reset_index(drop=True)
     return validate_candles(df)
+
+
+def has_gap(df: pd.DataFrame, rows: range, bar: str = "5min") -> bool:
+    """True if any consecutive pair of candles inside `rows` is more than one bar apart."""
+    ts = df["timestamps"].iloc[rows.start : rows.stop]
+    return bool((ts.diff().dropna() > pd.Timedelta(bar)).any())

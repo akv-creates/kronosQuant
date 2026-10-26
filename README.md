@@ -7,7 +7,8 @@ Educational research project: forecasting market candles with the open-source [K
 ## Status
 - Stage 0 (environment, layout): done.
 - Stage 1 (first forecast): script runs on CPU and MPS.
-- Stage 2 (data validation, chronological splits, leakage tests): done. 26 tests pass.
+- Stage 2 (data validation, chronological splits, leakage tests): done.
+- Stage 3 (forecast quality vs baselines, validation split only): done. First result, one stock (HK 09988), 100 non-overlapping 1-hour windows, Kronos-small zero-shot with default sampling: Kronos did **not** beat the random-walk baseline on error (its extra error was statistically distinguishable from zero), and its directional accuracy (49.0%, n=96) matched the base rate (49.0% of windows rose). This is a narrow result, not a verdict on Kronos. The test split is untouched.
 - Later stages: data layer, baselines, evaluation, walk-forward harness, backtester, strategy research, paper trading, Streamlit dashboard.
 
 ## Quick start

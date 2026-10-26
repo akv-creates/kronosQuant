@@ -22,6 +22,7 @@ scripts/setup_kronos.sh                          # clones upstream Kronos at the
 - `src/kronosquant/forecast.py`: load Kronos-small (HF revisions pinned), `forecast_window()` (seeded, uses only rows before the origin).
 - `src/kronosquant/data.py`: `load_candles` / `validate_candles` (raises `DataError`), `find_gaps`.
 - `src/kronosquant/splits.py`: `chronological_split` (optional embargo), `Window`, `make_windows` (future always inside the split, history strictly before origin).
+- `src/kronosquant/baselines.py` (random walk, drift, momentum), `metrics.py` (MAE, directional accuracy, rank IC, paired bootstrap CI), `evaluation.py` (gap-free non-overlapping windows, return paths). Run: `.venv/bin/python -I scripts/stage3_evaluate.py --windows 100` (~7.5 min on CPU). Evaluate on the validation split only until a strategy is frozen; the test split is touched once.
 - Leakage guard: `tests/test_forecast.py::test_forecast_does_not_depend_on_future_values` poisons all rows at/after the origin; a mutation check (off-by-one slice) was confirmed to make it fail.
 - `scripts/`: runnable experiments. `tests/`: pytest. `outputs/`: generated plots/CSVs (git-ignored).
 - `vendor/Kronos/`: upstream clone (git-ignored; treat as untrusted external code, never run interpreters from inside it). Imported as the top-level `model` package.
