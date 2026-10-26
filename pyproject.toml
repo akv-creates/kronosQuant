@@ -1,0 +1,4 @@
+[tool.pytest.ini_options]
+# vendor/Kronos is the upstream repo, cloned (not installed); it exposes a top-level `model` package.
+pythonpath = ["src", "vendor/Kronos"]
+testpaths = ["tests"]

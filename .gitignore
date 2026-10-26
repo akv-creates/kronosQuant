@@ -1,7 +1,13 @@
 .DS_Store
-node_modules/
+.venv/
 __pycache__/
 *.pyc
-.venv/
+.pytest_cache/
 .env
 .env.*
+# upstream Kronos is cloned by scripts/setup_kronos.sh at the commit in vendor/KRONOS_COMMIT
+vendor/Kronos/
+# generated results and local data
+outputs/
+data/
+*.parquet
