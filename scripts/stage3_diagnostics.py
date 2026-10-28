@@ -5,7 +5,7 @@ from pathlib import Path
 import numpy as np
 
 ROOT = Path(__file__).resolve().parents[1]
-d = np.load(ROOT / "outputs" / "stage3_paths.npz")
+d = np.load(sys.argv[1] if len(sys.argv) > 1 else ROOT / "outputs" / "stage3_paths.npz")  # optional: path to another dataset's paths
 actual, k = d["actual"], d["kronos"]
 print(f"windows: {len(actual)}, horizon: {actual.shape[1]}")
 

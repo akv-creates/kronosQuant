@@ -88,3 +88,19 @@ def test_select_windows_skips_gaps_does_not_overlap_and_respects_n():
     futures = [set(w.future) for w in ws]
     assert all(a.isdisjoint(b) for i, a in enumerate(futures) for b in futures[i + 1 :])
     assert len(select_windows(candles, range(0, 200), 20, 10, n=3)) == 3
+
+
+def test_select_windows_bar_size_matters_for_hourly_data():
+    from kronosquant.evaluation import select_windows
+
+    candles = pd.DataFrame({"timestamps": pd.date_range("2024-01-01", periods=200, freq="1h")})
+    assert select_windows(candles, range(0, 200), 20, 10, n=1000)  == []  # default 5min: every hourly step looks like a gap
+    assert len(select_windows(candles, range(0, 200), 20, 10, n=1000, bar="1h")) > 10
+
+
+def test_log_ratio_mae_hand_computed_and_symmetric():
+    from kronosquant.metrics import log_ratio_mae
+
+    assert log_ratio_mae(np.array([2.0, 1.0]), np.array([1.0, 2.0])) == pytest.approx(np.log(2))
+    assert log_ratio_mae(np.array([3.0]), np.array([3.0])) == 0.0
+    assert log_ratio_mae(np.array([2.0]), np.array([1.0])) == pytest.approx(log_ratio_mae(np.array([1.0]), np.array([2.0])))

@@ -49,3 +49,8 @@ def paired_bootstrap_ci(diff: np.ndarray, n_boot: int = 2000, seed: int = 0, lev
     means = diff[idx].mean(axis=1)
     lo, hi = np.quantile(means, [(1 - level) / 2, 1 - (1 - level) / 2])
     return float(lo), float(hi)
+
+
+def log_ratio_mae(pred: np.ndarray, actual: np.ndarray) -> float:
+    """Mean |log(pred / actual)| for positive quantities such as price range: 0.1 means 'off by about 10%'. Symmetric in over/under."""
+    return float(np.abs(np.log(pred / actual)).mean())

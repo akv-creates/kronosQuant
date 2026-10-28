@@ -12,6 +12,7 @@ import pandas as pd  # noqa: E402
 from kronosquant.baselines import BASELINES  # noqa: E402
 from kronosquant.cache import ForecastCache, run_walk_forward  # noqa: E402
 from kronosquant.evaluation import actual_paths, baseline_paths, paths_from_forecasts, select_windows  # noqa: E402
+from kronosquant.data import load_candles  # noqa: E402
 from kronosquant.forecast import ROOT, forecast_config, forecast_window, load_predictor, load_sample_candles  # noqa: E402
 from kronosquant.metrics import (  # noqa: E402
     directional_accuracy,
@@ -28,13 +29,16 @@ parser.add_argument("--pred-len", type=int, default=12)
 parser.add_argument("--lookback", type=int, default=400)
 parser.add_argument("--sample-count", type=int, default=5)
 parser.add_argument("--device", default="cpu")
+parser.add_argument("--csv", help="candle CSV (default: the HK sample from the Kronos repo)")
+parser.add_argument("--bar", default="5min", help="candle size as a pandas offset, e.g. 5min or 1h; longer steps count as gaps")
 args = parser.parse_args()
 
-candles = load_sample_candles()
+candles = load_candles(Path(args.csv)) if args.csv else load_sample_candles()
+tag = f"_{Path(args.csv).stem}" if args.csv else ""  # default (HK sample) keeps the original output names
 split = chronological_split(len(candles))["val"]
-windows = select_windows(candles, split, args.lookback, args.pred_len, args.windows)
+windows = select_windows(candles, split, args.lookback, args.pred_len, args.windows, args.bar)
 first, last = candles["timestamps"].iloc[windows[0].origin], candles["timestamps"].iloc[windows[-1].origin]
-print(f"{len(windows)} validation windows, {first} .. {last}, horizon {args.pred_len} candles, lookback {args.lookback}")
+print(f"{len(candles)} candles; {len(windows)} validation windows, {first} .. {last}, horizon {args.pred_len} candles, lookback {args.lookback}")
 
 actual = actual_paths(candles, windows)
 paths = {name: baseline_paths(candles, windows, fn) for name, fn in BASELINES.items()}
@@ -79,10 +83,10 @@ for name, p in paths.items():
 table = pd.DataFrame(rows).set_index("model")
 pd.set_option("display.width", 200)
 print(table.to_string(float_format=lambda x: f"{x:.6f}"))
-print(f"\nBase rate: price ended the 1-hour window higher in {(actual[:, -1] > 0).mean():.1%} of windows")
+print(f"\nBase rate: price ended the {args.pred_len}-bar window higher in {(actual[:, -1] > 0).mean():.1%} of windows")
 print("MAE-RW CI: mean(model error - random-walk error) per window; entirely below 0 = better than random walk, straddling 0 = cannot tell.")
 
 out = ROOT / "outputs"
 out.mkdir(exist_ok=True)
-table.to_csv(out / "stage3_table.csv")
-np.savez(out / "stage3_paths.npz", actual=actual, origins=[w.origin for w in windows], **paths)
+table.to_csv(out / f"stage3{tag}_table.csv")
+np.savez(out / f"stage3{tag}_paths.npz", actual=actual, origins=[w.origin for w in windows], **paths)
