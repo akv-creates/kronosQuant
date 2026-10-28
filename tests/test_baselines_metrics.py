@@ -104,3 +104,25 @@ def test_log_ratio_mae_hand_computed_and_symmetric():
     assert log_ratio_mae(np.array([2.0, 1.0]), np.array([1.0, 2.0])) == pytest.approx(np.log(2))
     assert log_ratio_mae(np.array([3.0]), np.array([3.0])) == 0.0
     assert log_ratio_mae(np.array([2.0]), np.array([1.0])) == pytest.approx(log_ratio_mae(np.array([1.0]), np.array([2.0])))
+
+
+def test_bootstrap_ic_ci_perfect_noise_and_degenerate_cases():
+    from kronosquant.metrics import bootstrap_ic_ci
+
+    x = np.random.default_rng(0).normal(size=200)
+    lo, hi = bootstrap_ic_ci(x, x * 3 + 1, seed=1)
+    assert lo > 0.99 and hi <= 1.0 + 1e-9
+    lo, hi = bootstrap_ic_ci(x, np.random.default_rng(1).normal(size=200), level=0.99)
+    assert lo < 0 < hi  # unrelated series -> interval straddles zero
+    assert bootstrap_ic_ci(x, x, seed=2) == bootstrap_ic_ci(x, x, seed=2)  # seeded
+    assert all(np.isnan(bootstrap_ic_ci(np.zeros(50), x[:50])))  # constant prediction -> undefined
+
+
+def test_top_k_is_in_the_cache_key_only_when_used():
+    from kronosquant.cache import config_key
+    from kronosquant.forecast import forecast_config, load_sample_candles
+
+    c = load_sample_candles()
+    base = forecast_config(c, "cpu", 400, 12, 1.0, 0.9, 5)
+    assert "top_k" not in base  # keeps keys of caches created before top_k existed
+    assert config_key(forecast_config(c, "cpu", 400, 12, 1.0, 0.9, 5, top_k=1)) != config_key(base)

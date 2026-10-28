@@ -27,9 +27,9 @@ SAMPLE_CSV = ROOT / "vendor" / "Kronos" / "finetune_csv" / "data" / "HK_ali_0998
 FEATURES = ["open", "high", "low", "close", "volume", "amount"]
 
 
-def forecast_config(candles: pd.DataFrame, device: str, lookback: int, pred_len: int, T: float, top_p: float, sample_count: int) -> dict:
+def forecast_config(candles: pd.DataFrame, device: str, lookback: int, pred_len: int, T: float, top_p: float, sample_count: int, top_k: int = 0) -> dict:
     """Everything that can change a forecast. Its hash names the cache directory."""
-    return {
+    config = {
         "tokenizer": [TOKENIZER_ID, TOKENIZER_REVISION],
         "model": [MODEL_ID, MODEL_REVISION],
         "kronos_commit": (ROOT / "vendor" / "KRONOS_COMMIT").read_text().strip(),
@@ -44,6 +44,9 @@ def forecast_config(candles: pd.DataFrame, device: str, lookback: int, pred_len:
         "seed_policy": "seed = window origin",
         "data": data_fingerprint(candles),
     }
+    if top_k:  # only recorded when used, so cache keys made before top_k existed stay valid
+        config["top_k"] = top_k
+    return config
 
 
 def set_seed(seed: int) -> None:
@@ -74,6 +77,7 @@ def forecast_window(
     T: float = 1.0,
     top_p: float = 0.9,
     sample_count: int = 1,
+    top_k: int = 0,
 ) -> pd.DataFrame:
     """Forecast `pred_len` candles that start at row `origin`, using only rows before it.
 
@@ -93,6 +97,7 @@ def forecast_window(
             pred_len=pred_len,
             T=T,
             top_p=top_p,
+            top_k=top_k,
             sample_count=sample_count,
             verbose=False,
         )
