@@ -61,7 +61,7 @@ def test_loss_is_finite_and_roughly_log_vocab_for_an_untrained_model():
     model, tok = tiny_models()
     x, st = window_batch(values, stamps, [0, 50], 64)
     loss, ce1, ce2 = token_loss(model, tok, x, st)
-    assert np.isfinite(float(loss))
+    assert np.isfinite(loss.item())
     assert ce1 == pytest.approx(np.log(16), rel=0.5) and ce2 == pytest.approx(np.log(16), rel=0.5)
 
 
