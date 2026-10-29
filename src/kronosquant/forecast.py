@@ -1,4 +1,5 @@
 """Stage 1: load pretrained Kronos-small and produce one forecast."""
+import hashlib
 import random
 import sys
 from pathlib import Path
@@ -27,7 +28,13 @@ SAMPLE_CSV = ROOT / "vendor" / "Kronos" / "finetune_csv" / "data" / "HK_ali_0998
 FEATURES = ["open", "high", "low", "close", "volume", "amount"]
 
 
-def forecast_config(candles: pd.DataFrame, device: str, lookback: int, pred_len: int, T: float, top_p: float, sample_count: int, top_k: int = 0) -> dict:
+def weights_fingerprint(checkpoint_dir: Path) -> str:
+    """SHA-256 of a fine-tuned checkpoint's weights file, so a different checkpoint can never reuse another's cache."""
+    return hashlib.sha256((Path(checkpoint_dir) / "model.safetensors").read_bytes()).hexdigest()
+
+
+def forecast_config(candles: pd.DataFrame, device: str, lookback: int, pred_len: int, T: float, top_p: float, sample_count: int, top_k: int = 0,
+                    checkpoint_dir: Path | None = None) -> dict:
     """Everything that can change a forecast. Its hash names the cache directory."""
     config = {
         "tokenizer": [TOKENIZER_ID, TOKENIZER_REVISION],
@@ -46,6 +53,8 @@ def forecast_config(candles: pd.DataFrame, device: str, lookback: int, pred_len:
     }
     if top_k:  # only recorded when used, so cache keys made before top_k existed stay valid
         config["top_k"] = top_k
+    if checkpoint_dir is not None:  # replaces the pretrained predictor weights; the pinned revision above is then only the starting point
+        config["finetuned_weights_sha256"] = weights_fingerprint(checkpoint_dir)
     return config
 
 
@@ -59,9 +68,10 @@ def load_sample_candles(path: Path = SAMPLE_CSV) -> pd.DataFrame:
     return load_candles(path)
 
 
-def load_predictor(device: str = "cpu") -> KronosPredictor:
+def load_predictor(device: str = "cpu", checkpoint_dir: Path | None = None) -> KronosPredictor:
+    """Pretrained Kronos-small, or the predictor weights saved in `checkpoint_dir` (tokenizer is always the pinned pretrained one)."""
     tokenizer = KronosTokenizer.from_pretrained(TOKENIZER_ID, revision=TOKENIZER_REVISION)
-    model = Kronos.from_pretrained(MODEL_ID, revision=MODEL_REVISION)
+    model = Kronos.from_pretrained(str(checkpoint_dir)) if checkpoint_dir is not None else Kronos.from_pretrained(MODEL_ID, revision=MODEL_REVISION)
     tokenizer.eval()
     model.eval()
     return KronosPredictor(model, tokenizer, device=device, max_context=MAX_CONTEXT)
