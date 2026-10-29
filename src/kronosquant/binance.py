@@ -11,8 +11,8 @@ import requests
 
 BASE_URL = "https://data-api.binance.vision"  # Binance's market-data-only host
 KLINES_PATH = "/api/v3/klines"
-INTERVAL_MS = {"5m": 300_000, "15m": 900_000, "1h": 3_600_000}
-INTERVAL_PANDAS = {"5m": "5min", "15m": "15min", "1h": "1h"}
+INTERVAL_MS = {"5m": 300_000, "15m": 900_000, "1h": 3_600_000, "1d": 86_400_000}
+INTERVAL_PANDAS = {"5m": "5min", "15m": "15min", "1h": "1h", "1d": "1D"}
 PAGE_LIMIT = 1000  # the API's maximum candles per request
 
 

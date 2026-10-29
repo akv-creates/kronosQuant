@@ -11,3 +11,4 @@ safetensors==0.6.2
 requests
 pytest
 streamlit==1.66.1
+plotly==7.1.0

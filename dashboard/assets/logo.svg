@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 230 44" width="230" height="44">
+  <rect x="4" y="22" width="9" height="18" rx="2" fill="#60A5FA"/>
+  <rect x="17" y="12" width="9" height="28" rx="2" fill="#3B82F6"/>
+  <rect x="30" y="3" width="9" height="37" rx="2" fill="#2563EB"/>
+  <text x="50" y="31" font-family="Inter, system-ui, -apple-system, 'Segoe UI', sans-serif" font-size="24" font-weight="700" fill="#FFFFFF">KronosQuant</text>
+</svg>

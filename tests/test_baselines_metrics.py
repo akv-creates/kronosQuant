@@ -126,3 +126,47 @@ def test_top_k_is_in_the_cache_key_only_when_used():
     base = forecast_config(c, "cpu", 400, 12, 1.0, 0.9, 5)
     assert "top_k" not in base  # keeps keys of caches created before top_k existed
     assert config_key(forecast_config(c, "cpu", 400, 12, 1.0, 0.9, 5, top_k=1)) != config_key(base)
+
+
+def test_paired_ic_diff_ci_identical_perfect_and_noise():
+    from kronosquant.metrics import paired_ic_diff_ci
+
+    rng = np.random.default_rng(0)
+    y = rng.normal(size=200)
+    assert paired_ic_diff_ci(y, y, y) == (0.0, 0.0)  # the same forecast cannot differ from itself
+    lo, hi = paired_ic_diff_ci(y, -y, y)
+    assert lo == pytest.approx(2.0) and hi == pytest.approx(2.0)  # perfect (+1) minus perfectly reversed (-1)
+    a, b = rng.normal(size=300), rng.normal(size=300)
+    y2 = rng.normal(size=300)
+    lo, hi = paired_ic_diff_ci(a, b, y2, level=0.99)
+    assert lo < 0 < hi  # two unrelated noise forecasts: the difference is not distinguishable from zero
+    assert np.isnan(paired_ic_diff_ci(np.ones(10), b[:10], y2[:10])[0])  # constant forecast ranks nothing
+
+
+def test_stationary_bootstrap_ci_covers_zero_for_noise_and_widens_with_dependence():
+    from kronosquant.metrics import paired_bootstrap_ci, stationary_bootstrap_ci
+
+    rng = np.random.default_rng(0)
+    noise = rng.normal(size=400)
+    lo, hi = stationary_bootstrap_ci(noise, mean_block=1.0, level=0.99)  # block length 1 = the ordinary bootstrap
+    olo, ohi = paired_bootstrap_ci(noise, level=0.99)
+    assert lo < 0 < hi and (hi - lo) == pytest.approx(ohi - olo, rel=0.15)
+    # a strongly autocorrelated series: the same marginal spread but a much less certain mean
+    ar = np.zeros(400)
+    e = rng.normal(size=400)
+    for t in range(1, 400):
+        ar[t] = 0.9 * ar[t - 1] + e[t]
+    w_iid = paired_bootstrap_ci(ar, level=0.99)
+    w_blk = stationary_bootstrap_ci(ar, mean_block=20.0, level=0.99)
+    assert (w_blk[1] - w_blk[0]) > 1.5 * (w_iid[1] - w_iid[0])
+    assert stationary_bootstrap_ci(np.full(50, 0.3)) == (pytest.approx(0.3), pytest.approx(0.3))  # constant series: no uncertainty
+    assert np.isnan(stationary_bootstrap_ci(np.array([1.0, 2.0]))[0])
+
+
+def test_stationary_bootstrap_is_reproducible_and_detects_a_real_mean():
+    from kronosquant.metrics import stationary_bootstrap_ci
+
+    x = np.random.default_rng(1).normal(0.5, 1.0, size=300)
+    assert stationary_bootstrap_ci(x, seed=3) == stationary_bootstrap_ci(x, seed=3)
+    lo, hi = stationary_bootstrap_ci(x, level=0.99)
+    assert lo > 0 and lo < 0.5 < hi  # a real positive mean is detected and the truth sits inside the interval
