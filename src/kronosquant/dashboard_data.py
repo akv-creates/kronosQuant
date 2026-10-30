@@ -3,6 +3,7 @@
 The dashboard only READS result files the experiment scripts wrote (outputs/*.csv) and re-runs the cheap paper account on the
 VALIDATION split. The test split is never loaded: `validation_candles` is the only way the dashboard gets price data.
 """
+import json
 from pathlib import Path
 
 import numpy as np
@@ -23,6 +24,18 @@ def validation_candles(candles: pd.DataFrame) -> pd.DataFrame:
 def load_table(path: Path) -> pd.DataFrame | None:
     """A result CSV, or None when that experiment has not been run on this machine (outputs/ is git-ignored)."""
     return pd.read_csv(path) if Path(path).exists() else None
+
+
+def load_manifest(directory: Path) -> dict | None:
+    """The `manifest.json` written by scripts/publish_results.py (generation dates, hashes, source commit), or None for a plain outputs/ folder."""
+    path = Path(directory) / "manifest.json"
+    return json.loads(path.read_text()) if path.exists() else None
+
+
+def split_table(timestamps: pd.Series) -> pd.DataFrame:
+    """The chronological train / validation / test split of a candle file as a display table: split, first day, last day, rows."""
+    rows = [{"split": name, "from": f"{timestamps.iloc[r.start]:%Y-%m-%d}", "to": f"{timestamps.iloc[r.stop - 1]:%Y-%m-%d}", "rows": len(r)} for name, r in chronological_split(len(timestamps)).items()]
+    return pd.DataFrame(rows, columns=["split", "from", "to", "rows"])
 
 
 def status_of(lo: float, hi: float, lower_is_better: bool = False) -> str:
@@ -160,6 +173,7 @@ STRATEGIES = {"always long": always_long, "momentum (12 bars)": momentum_12, "fl
 def experiment_table(outputs: Path) -> pd.DataFrame:
     """One row per registered experiment: run state (Completed or Pending), outcome of its declared primary, date and headline number."""
     sc = scorecard(outputs)
+    manifest = load_manifest(outputs)
     rows = []
     for e in EXPERIMENTS:
         files = [Path(outputs) / f for f in e["results"]]
@@ -175,7 +189,12 @@ def experiment_table(outputs: Path) -> pd.DataFrame:
             best = shown.loc[shown["estimate"].idxmin() if shown["lower_is_better"].iloc[0] else shown["estimate"].idxmax()]
             unit = " bps" if best["group"] == GROUP_NET else ""
             headline = f"{best['signal']}: {best['estimate']:+.3f}{unit} [{best['ci_lo']:+.3f}, {best['ci_hi']:+.3f}]"
-        date = max(pd.Timestamp(f.stat().st_mtime, unit="s") for f in files).strftime("%Y-%m-%d") if done else "\u2014"
+        if not done:
+            date = "\u2014"
+        elif manifest:  # published results: use the recorded generation dates, not the time the repository was cloned
+            date = max(manifest["files"][f.name]["generated_utc"] for f in files)[:10]
+        else:
+            date = max(pd.Timestamp(f.stat().st_mtime, unit="s") for f in files).strftime("%Y-%m-%d")
         rows.append({"id": e["id"], "stage": e["stage"], "name": e["name"], "model": e["model"], "state": "Completed" if done else "Pending", "outcome": outcome,
                      "date": date, "headline": headline})
     return pd.DataFrame(rows)
@@ -197,8 +216,9 @@ def dataset_inventory(data_dir: Path) -> pd.DataFrame:
     return pd.DataFrame(rows, columns=["symbol", "interval", "rows", "first", "last", "gaps", "fingerprint", "fetched_utc"])
 
 
-def code_version(root: Path) -> str:
-    """Short git commit of the checkout, marked when the working tree has uncommitted changes. 'unknown' outside a git repository."""
+def code_version(root: Path, fallback: str = "unknown") -> str:
+    """Short git commit of the checkout, marked when the working tree has uncommitted changes. `fallback` when git is unavailable
+    (for example on a hosted deployment, where the published manifest records the commit the results came from)."""
     import subprocess
 
     def git(*args):
@@ -207,11 +227,11 @@ def code_version(root: Path) -> str:
     try:
         head = git("rev-parse", "--short", "HEAD")
         if head.returncode != 0:
-            return "unknown"
+            return fallback
         dirty = bool(git("status", "--porcelain").stdout.strip())
         return head.stdout.strip() + (" (+ uncommitted changes)" if dirty else "")
     except (OSError, subprocess.SubprocessError):
-        return "unknown"
+        return fallback
 
 
 def declared_rule(script: Path) -> str:

@@ -1,5 +1,6 @@
 """Helpers shared by every dashboard page: paths, cached data loaders, number formatting and friendly error handling."""
 import functools
+import os
 import sys
 from pathlib import Path
 
@@ -15,7 +16,14 @@ from kronosquant.dashboard_data import STRATEGIES, load_table, validation_candle
 from kronosquant.data import DataError, load_candles  # noqa: E402
 from kronosquant.paper import RiskLimits, run_paper  # noqa: E402
 
-OUT, DATA = ROOT / "outputs", ROOT / "data"
+# Where results come from. A developer machine has outputs/ (freshly generated results) and data/ (downloaded candles). A hosted deployment has neither:
+# the repository carries a small published/ snapshot (see scripts/publish_results.py), so visitors never trigger model inference or backtests, and
+# raw exchange candles are never redistributed. KRONOSQUANT_PUBLISHED_ONLY=1 forces that hosted behaviour on a developer machine, for testing.
+DATA, PUBLISHED = ROOT / "data", ROOT / "published"
+ONLY_PUBLISHED = os.environ.get("KRONOSQUANT_PUBLISHED_ONLY") == "1"
+PUBLIC_MODE = ONLY_PUBLISHED or not any((ROOT / "outputs").glob("*.csv"))
+OUT = PUBLISHED if PUBLIC_MODE else ROOT / "outputs"
+HAS_LOCAL_DATA = not ONLY_PUBLISHED and any(DATA.glob("*_1h.csv"))
 FETCH_HINT = ".venv/bin/python -I scripts/fetch_binance.py --symbol BTCUSDT --interval 1h --years 3 --end 2026-10-28"
 CHART_CONFIG = {"displayModeBar": False}
 
@@ -34,12 +42,24 @@ def paper_run(asset: str, strategy: str, fee: float, slip: float, max_pos: float
     return res.frame, res.events, res.metrics
 
 
+def validation_period() -> tuple[str, str] | None:
+    """First and last day of the BTC validation split, from the local candles or (on a hosted deployment) from the published split table."""
+    if HAS_LOCAL_DATA and (DATA / "BTCUSDT_1h.csv").exists():
+        v = val_data("BTCUSDT")
+        return f"{v['timestamps'].iloc[0]:%Y-%m-%d}", f"{v['timestamps'].iloc[-1]:%Y-%m-%d}"
+    splits = load_table(OUT / "splits.csv")
+    if splits is not None and (splits["split"] == "val").any():
+        row = splits[splits["split"] == "val"].iloc[0]
+        return str(row["from"]), str(row["to"])
+    return None
+
+
 def period_text() -> str:
     """Date range of the BTC validation split, for page headers."""
-    if not (DATA / "BTCUSDT_1h.csv").exists():
+    period = validation_period()
+    if period is None:
         return "validation split"
-    v = val_data("BTCUSDT")
-    return f"{v['timestamps'].iloc[0]:%b %d, %Y} – {v['timestamps'].iloc[-1]:%b %d, %Y}"
+    return " – ".join(pd.Timestamp(d).strftime("%b %d, %Y") for d in period)
 
 
 def pct(x: float) -> str:
@@ -64,19 +84,24 @@ def table_or_empty(filename: str, fix: str) -> pd.DataFrame | None:
 
 
 def guarded(render):
-    """Wrap a page so a missing file or bad data shows an explanation and a next step instead of a Python traceback."""
+    """Wrap a page so a missing file or bad data shows an explanation and a next step instead of a Python traceback.
+    Technical details (which can contain local paths) are shown only on a developer machine, never on the public deployment."""
 
     @functools.wraps(render)
     def page():
         try:
             render()
         except FileNotFoundError as err:
-            theme.empty_state(f"This page needs a file that is not on this machine yet ({Path(str(err.filename)).name}). Data and results are not stored in the repository.", FETCH_HINT)
+            if PUBLIC_MODE:
+                st.error("A published result file is missing from this deployment. Please try again later or report it on the project's GitHub page.")
+            else:
+                theme.empty_state(f"This page needs a file that is not on this machine yet ({Path(str(err.filename)).name}). Data and results are not stored in the repository.", FETCH_HINT)
         except DataError as err:
             st.error(f"The market data failed its safety checks, so nothing was drawn: {err}. Download the file again to fix it.")
-        except Exception as err:  # noqa: BLE001  last-resort screen for a research tool; details stay available
+        except Exception as err:  # noqa: BLE001  last-resort screen for a research tool
             st.error("Something unexpected went wrong while building this page. The research results themselves are not affected.")
-            with st.expander("Technical details"):
-                st.exception(err)
+            if not PUBLIC_MODE:
+                with st.expander("Technical details"):
+                    st.exception(err)
 
     return page

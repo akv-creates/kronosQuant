@@ -51,7 +51,7 @@ You need Python 3.12 (managed with [uv](https://docs.astral.sh/uv/)), several GB
 
 ```bash
 uv venv --python 3.12 .venv
-uv pip install --python .venv/bin/python -r requirements.txt
+uv pip install --python .venv/bin/python -r requirements-research.txt
 scripts/setup_kronos.sh
 ```
 
@@ -74,7 +74,16 @@ Open the dashboard:
 .venv/bin/python -I -m streamlit run dashboard/app.py
 ```
 
-Result files live in `outputs/` and are not committed, so a fresh clone shows empty pages until you run the experiments. Each experiment's exact command is on the dashboard's **Reports** page. Forecasts are cached, so rerunning an experiment reproduces its saved numbers, and long runs resume where they stopped.
+Result files live in `outputs/` and are not committed. A fresh clone shows the **published snapshot** in `published/` (see below) until you run the experiments yourself, after which your own `outputs/` take over. Each experiment's exact command is on the dashboard's **Reports** page. Forecasts are cached, so rerunning an experiment reproduces its saved numbers, and long runs resume where they stopped.
+
+## The hosted dashboard
+
+The dashboard can be hosted for anyone to open without installing anything (see [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for the Streamlit Community Cloud steps). The hosted version is built to be safe and cheap to run:
+
+- It reads a small snapshot of saved results from `published/`, so visitors never trigger model inference, backtests or downloads. `scripts/publish_results.py` rebuilds the snapshot, and each file's SHA-256 is recorded in `published/manifest.json`.
+- It needs only `requirements.txt` (Streamlit, Plotly, pandas, numpy), not PyTorch.
+- Raw exchange candles are not published, because Binance's data terms restrict redistribution. The hosted Strategies page therefore shows precomputed paper-account runs; the interactive version runs on a local install with the data downloaded.
+- It holds no secrets and needs none.
 
 ## The dashboard
 
@@ -103,7 +112,8 @@ src/kronosquant/     the library
 scripts/             one runnable script per experiment (rule declared in each header)
 dashboard/           Streamlit app: app.py, views/ (one file per page), common.py, theme.py, charts.py
 tests/               pytest suite
-docs/                EXPERIMENT_LOG.md (all results) and PRODUCT_CONTEXT.md (product thinking)
+docs/                EXPERIMENT_LOG.md (all results), DEPLOYMENT.md (hosting), PRODUCT_CONTEXT.md (product thinking)
+published/           committed snapshot of results for the hosted dashboard (rebuilt by scripts/publish_results.py)
 vendor/              upstream Kronos is cloned here by setup_kronos.sh (not committed)
 ```
 
@@ -122,5 +132,9 @@ vendor/              upstream Kronos is cloned here by setup_kronos.sh (not comm
 - [docs/EXPERIMENT_LOG.md](docs/EXPERIMENT_LOG.md): every experiment, rule, number and caveat.
 - [docs/PRODUCT_CONTEXT.md](docs/PRODUCT_CONTEXT.md): market research, viability and where this could go.
 - [CLAUDE.md](CLAUDE.md): working rules and technical notes for contributors and coding assistants.
+
+## Disclaimer
+
+KronosQuant is an experimental quantitative research and paper-trading project. It is not a live trading platform, brokerage or advisory service, and nothing in this repository or on its dashboard is financial, investment, legal or tax advice or a recommendation to buy or sell anything. Every result comes from historical data and simulated trades with assumed costs, does not predict future results, and no result here has been shown to be a reliable, tradable edge. Use it at your own risk.
 
 The upstream Kronos code and models are MIT-licensed by their authors. This repository does not yet include a licence file of its own.

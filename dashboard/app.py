@@ -20,13 +20,16 @@ import streamlit as st  # noqa: E402
 st.set_page_config(page_title="KronosQuant", layout="wide", page_icon="▤")  # must be the first Streamlit call
 
 import theme  # noqa: E402
-from common import guarded  # noqa: E402
+from common import PUBLIC_MODE, guarded  # noqa: E402
+from kronosquant.glossary import DISCLAIMER  # noqa: E402
 from views import datasets, experiments, home, models, reports, strategies  # noqa: E402
 
 theme.inject_css()
 st.logo(str(ROOT / "dashboard" / "assets" / "logo.svg"), size="large")
 with st.sidebar:
     st.markdown('<div class="side-note">Research and paper trading only. Nothing here is a trading recommendation or investment advice.</div>', unsafe_allow_html=True)
+    if PUBLIC_MODE:
+        st.markdown('<div class="side-note">Showing a published snapshot of saved results. Nothing is computed when you open a page.</div>', unsafe_allow_html=True)
 
 PAGES = [
     ("Home", ":material/home:", "home", home, True),
@@ -38,3 +41,6 @@ PAGES = [
 ]
 # The default page lives at the root URL, so it gets no url_path of its own.
 st.navigation([st.Page(guarded(view.render), title=title, icon=icon, url_path=None if default else path, default=default) for title, icon, path, view, default in PAGES]).run()
+
+st.divider()
+theme.note("Disclaimer: " + DISCLAIMER)  # shown under every page

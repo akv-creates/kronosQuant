@@ -21,7 +21,7 @@ Hard rules that apply to everything (from the project's working rules):
 
 ## 2. What exists (built and tested)
 
-Repository: `/Users/apple/Gen AI apps/kronosQuant`, GitHub `akv-creates/kronosQuant` (public). Python 3.12 venv (uv), pandas 2.2.2, torch 2.14.1, Apple M1 with 8 GB RAM; CPU is used for stable timings. Kronos-small (24.7M parameters, context 512) with pinned Hugging Face revisions and a pinned upstream commit.
+Repository: GitHub `akv-creates/kronosQuant` (public). Python 3.12 venv (uv), pandas 2.2.2, torch 2.14.1, Apple M1 with 8 GB RAM; CPU is used for stable timings. Kronos-small (24.7M parameters, context 512) with pinned Hugging Face revisions and a pinned upstream commit.
 
 | Stage | What | Status |
 |---|---|---|

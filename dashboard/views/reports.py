@@ -3,8 +3,8 @@ import pandas as pd
 import streamlit as st
 
 import theme
-from common import DATA, OUT, ROOT, val_data
-from kronosquant.dashboard_data import code_version, declared_rule, experiment_table
+from common import OUT, ROOT, validation_period
+from kronosquant.dashboard_data import code_version, declared_rule, experiment_table, load_manifest
 from kronosquant.experiments import EXPERIMENTS
 from kronosquant.glossary import GLOSSARY
 
@@ -13,10 +13,16 @@ def _evaluation_period(experiment: dict) -> str:
     """The experiment's own period. Hourly experiments say 'validation', which is shown with the real BTC dates; daily ones state their own window."""
     if experiment["period"] != "validation":
         return experiment["period"]
-    if not (DATA / "BTCUSDT_1h.csv").exists():
-        return "validation split (data not on this machine)"
-    v = val_data("BTCUSDT")
-    return f"{v['timestamps'].iloc[0]:%Y-%m-%d} → {v['timestamps'].iloc[-1]:%Y-%m-%d} (validation split, BTC 1h)"
+    period = validation_period()
+    return f"{period[0]} → {period[1]} (validation split, BTC 1h)" if period else "validation split (dates unavailable)"
+
+
+def _generated(files: list, manifest: dict | None) -> str:
+    if not all(f.exists() for f in files):
+        return "not yet generated"
+    if manifest:  # a hosted copy: report when the results were produced, not when the repository was cloned
+        return max(manifest["files"][f.name]["generated_utc"] for f in files).replace("T", " ")[:16] + " UTC"
+    return max(pd.Timestamp(f.stat().st_mtime, unit="s") for f in files).strftime("%Y-%m-%d %H:%M UTC")
 
 
 def render() -> None:
@@ -26,11 +32,13 @@ def render() -> None:
     pick = st.selectbox("Experiment", list(names), format_func=names.get)
     e = next(x for x in EXPERIMENTS if x["id"] == pick)
     files = [OUT / f for f in e["results"]]
-    generated = max(pd.Timestamp(f.stat().st_mtime, unit="s") for f in files).strftime("%Y-%m-%d %H:%M UTC") if all(f.exists() for f in files) else "not yet generated"
+    manifest = load_manifest(OUT)
+    generated = _generated(files, manifest)
+    version = code_version(ROOT, fallback=f"{manifest['source_commit']} (published results)" if manifest else "unknown")
     left, right = st.columns([1.5, 1], gap="medium")
     with left, st.container(border=True):
         st.markdown(f'<div class="card-title">Experiment Details &nbsp; {theme.badge(exp.loc[pick, "outcome"])}</div>', unsafe_allow_html=True)
-        rows = [("Experiment ID", pick), ("Dataset", e["dataset"]), ("Code version", code_version(ROOT)), ("Model", e["model"]), ("Configuration", e["config"]), ("Random seed", e["seed"]),
+        rows = [("Experiment ID", pick), ("Dataset", e["dataset"]), ("Code version", version), ("Model", e["model"]), ("Configuration", e["config"]), ("Random seed", e["seed"]),
                 ("Evaluation period", _evaluation_period(e)), ("Cost assumptions", e["costs"]), ("Baselines", e["baselines"]), ("Generated", generated)]
         st.markdown(theme.kv_table(rows), unsafe_allow_html=True)
     with right, st.container(border=True):

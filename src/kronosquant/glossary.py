@@ -1,5 +1,9 @@
 """Plain-language definitions of the technical terms used on the dashboard and in the docs. One place, so tooltips and the glossary never disagree."""
 
+DISCLAIMER = ("KronosQuant is an experimental quantitative research and paper-trading project. It is not a live trading platform, brokerage or advisory service, and nothing on this site is "
+              "financial, investment, legal or tax advice or a recommendation to buy or sell anything. Every result comes from historical data and simulated trades with assumed costs, "
+              "does not predict future results, and no result here has been shown to be a reliable, tradable edge. Use it at your own risk.")
+
 GLOSSARY = {
     "Research and paper trading": "Everything here is a study on historical data or a simulation with made-up fills. No real orders are placed, no real money is used, and nothing here is investment advice.",
     "Forecast skill": "Whether a model's predictions are better than a simple rule such as 'tomorrow looks like today'. A forecast can look plausible and still have no skill.",

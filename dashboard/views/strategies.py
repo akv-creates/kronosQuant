@@ -4,9 +4,9 @@ import streamlit as st
 
 import charts
 import theme
-from common import DATA, FETCH_HINT, num, paper_run, pct, show_chart, val_data
+from common import FETCH_HINT, HAS_LOCAL_DATA, DATA, OUT, num, paper_run, pct, show_chart, val_data
 from kronosquant.backtest import sharpe_ratio
-from kronosquant.dashboard_data import STRATEGIES, buy_and_hold_equity, equity_and_drawdown, events_by_rule, key_metrics, trade_markers, tripped_events
+from kronosquant.dashboard_data import STRATEGIES, load_table, buy_and_hold_equity, equity_and_drawdown, events_by_rule, key_metrics, trade_markers, tripped_events
 from kronosquant.glossary import GLOSSARY
 
 WINDOWS = {"1W": 7, "1M": 30, "3M": 91, "All": None}
@@ -116,12 +116,49 @@ def _details_tab(df, frame, events) -> None:
         st.dataframe(trades.head(500), hide_index=True, use_container_width=True)
 
 
+def _published_view() -> None:
+    """Hosted version: the same placeholder strategies, precomputed once on the BTC validation split (scripts/publish_results.py). No simulation runs here."""
+    ex = load_table(OUT / "paper_account_examples.csv")
+    if ex is None:
+        theme.empty_state("The precomputed paper-account results are not part of this deployment.")
+        return
+    st.info("This hosted version shows precomputed paper-account runs. The interactive version (change the fee, position limits and kill switch and watch the candles) runs on a local install: "
+            "it replays hourly Binance candles, which are not redistributed here. See the README for how to run it yourself.", icon=":material/info:")
+    pick = st.selectbox("Placeholder strategy", [s for s in ex["strategy"].unique() if s in STRATEGIES], help="Simple rules that show how the paper account works. They are not research findings and not recommendations.")
+    mine, bench = ex[(ex["strategy"] == pick) & (ex["scenario"] == "your limits")].set_index("fee_bps"), ex[ex["scenario"] == "benchmark"].iloc[0]
+    default = mine.loc[10]
+    off = ex[(ex["strategy"] == pick) & (ex["scenario"] == "limits effectively off")].iloc[0]
+    theme.kpi_row([
+        theme.kpi("Net Return", pct(default["net_return"]), f"vs {pct(bench['net_return'])} buy & hold", help=GLOSSARY["Net return"]),
+        theme.kpi("Sharpe Ratio", num(default["sharpe"]), f"vs {num(bench['sharpe'])} buy & hold", help=GLOSSARY["Sharpe ratio"]),
+        theme.kpi("Max Drawdown", pct(default["max_drawdown"]), f"vs {pct(bench['max_drawdown'])} buy & hold; limit −15%", help=GLOSSARY["Drawdown"]),
+    ])
+    theme.note("BTC validation split, 10 bps one-way fee, no slippage; limits: max position 0.50, max order 0.25 per bar, max daily loss 3%, drawdown kill switch 15%.")
+    st.write("")
+    left, right = st.columns([1.2, 1], gap="medium")
+    with left, st.container(border=True):
+        theme.card_title("Cost sensitivity", help="The same strategy re-run with different trading costs. If the result only survives at very low costs, it is not robust.")
+        show_chart(charts.cost_sensitivity_figure([int(c) for c in mine.index], list(mine["net_return"])))
+    with right, st.container(border=True):
+        theme.card_title("Table view")
+        rows = [[f"{int(c)} bps", pct(r.net_return), pct(r.max_drawdown), "tripped" if r.kill_switch else "no"] for c, r in mine.iterrows()]
+        st.markdown(theme.rows_table(["One-way cost", "Net return", "Max drawdown", "Kill switch"], rows, num_cols=(1, 2)), unsafe_allow_html=True)
+    with st.container(border=True):
+        theme.card_title("Risk limits on versus effectively off")
+        rows = [["Your limits", pct(default["net_return"]), pct(default["max_drawdown"]), f"{default['exposure']:.0%}"], ["Limits effectively off", pct(off["net_return"]), pct(off["max_drawdown"]), f"{off['exposure']:.0%}"]]
+        st.markdown(theme.rows_table(["Setting", "Net return", "Max drawdown", "Exposure"], rows, num_cols=(1, 2, 3)), unsafe_allow_html=True)
+        theme.note("Smaller losses with limits usually mean the strategy stopped trading in a falling market, not that it found skill.")
+
+
 def render() -> None:
     theme.page_header("Strategy Investigation", "Run a placeholder strategy through the paper account and inspect it. Simulated fills only.", chip="Paper account · validation split", badge_label="Placeholder")
-    files = sorted(DATA.glob("*_1h.csv"))
-    if not files:
-        theme.empty_state("No hourly market data is on this machine yet, so there is nothing to replay.", FETCH_HINT)
+    if not HAS_LOCAL_DATA:
+        if (OUT / "paper_account_examples.csv").exists():
+            _published_view()
+        else:
+            theme.empty_state("No hourly market data is on this machine yet, so there is nothing to replay.", FETCH_HINT)
         return
+    files = sorted(DATA.glob("*_1h.csv"))
     cfg = _config_card([f.name.replace("_1h.csv", "") for f in files])
     df = val_data(cfg["asset"])
     frame, events, m = paper_run(**cfg)

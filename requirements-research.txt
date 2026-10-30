@@ -1,0 +1,16 @@
+# Full research environment: Kronos inference, fine-tuning, experiments and tests. Includes the dashboard dependencies.
+#   uv pip install --python .venv/bin/python -r requirements-research.txt
+-r requirements.txt
+
+# Kronos upstream pins (vendor/Kronos/requirements.txt at the pinned commit)
+pandas==2.2.2
+torch>=2.0.0
+einops==0.8.1
+huggingface_hub==0.33.1
+matplotlib==3.9.3
+tqdm==4.67.1
+safetensors==0.6.2
+
+# our own
+requests
+pytest
