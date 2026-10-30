@@ -46,6 +46,15 @@ def xs_weights(row: np.ndarray, min_assets: int = 6, frac: float = 1 / 3) -> np.
     return w
 
 
+def rank_blend(a: pd.DataFrame, b: pd.DataFrame) -> pd.DataFrame:
+    """Equal-weight blend of two signals: the mean of each date's cross-sectional percentile ranks. Only assets with BOTH signals present are
+    scored (NaN elsewhere), and ranks are taken within that set, so the blend at a date uses nothing but that date's rows."""
+    valid = a.notna() & b.notna()
+    ra = a.where(valid).rank(axis=1, pct=True)
+    rb = b.where(valid).rank(axis=1, pct=True)
+    return (ra + rb) / 2.0
+
+
 def decision_indices(dates: pd.DatetimeIndex, first_decision: str, step: int) -> list[int]:
     """Row positions of the decision days: every `step` days from the first date on or after `first_decision`."""
     start = int(dates.searchsorted(pd.Timestamp(first_decision)))

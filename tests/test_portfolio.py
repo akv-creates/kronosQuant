@@ -90,6 +90,20 @@ def test_random_signals_have_no_edge_on_driftless_prices_and_costs_only_hurt():
     assert paid["net"].mean() < free["net"].mean() and paid["cost"].sum() > 0
 
 
+def test_rank_blend_hand_computed_masks_missing_and_is_row_local():
+    from kronosquant.portfolio import rank_blend
+
+    idx = pd.date_range("2024-01-01", periods=3, freq="1D")
+    a = pd.DataFrame({"X": [1.0, 5.0, 1.0], "Y": [2.0, 4.0, 2.0], "Z": [3.0, np.nan, 3.0]}, index=idx)
+    b = pd.DataFrame({"X": [3.0, 1.0, 9.0], "Y": [2.0, 2.0, 8.0], "Z": [1.0, 3.0, 7.0]}, index=idx)
+    out = rank_blend(a, b)
+    np.testing.assert_allclose(out.iloc[0].to_numpy(), [2 / 3, 2 / 3, 2 / 3])  # opposite orderings cancel
+    assert np.isnan(out.iloc[1]["Z"]) and out.iloc[1]["X"] == pytest.approx((1.0 + 0.5) / 2) and out.iloc[1]["Y"] == pytest.approx((0.5 + 1.0) / 2)  # Z lacks a signal: ranks among X, Y only
+    b2 = b.copy()
+    b2.iloc[0] = [9.0, 9.0, 9.0]  # changing another date must not change this date
+    pd.testing.assert_frame_equal(rank_blend(a, b2).iloc[1:], out.iloc[1:])
+
+
 def test_decision_indices_and_period_stats():
     idx = pd.date_range("2024-01-01", periods=12, freq="1D")
     assert decision_indices(idx, "2024-01-03", 5) == [2, 7]

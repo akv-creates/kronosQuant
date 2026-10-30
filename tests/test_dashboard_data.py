@@ -225,3 +225,13 @@ def test_scorecard_and_registry_include_the_stage13_primary_rows(tmp_path):
     t = experiment_table(tmp_path).set_index("id")
     assert t.loc["exp_stage13_signal_screen", "outcome"] == "Passed" and "XSMOM_28" in t.loc["exp_stage13_signal_screen", "headline"]
     assert next(e for e in EXPERIMENTS if e["id"] == "exp_stage13_signal_screen")["caveat"]  # a pass is never shown without its caveats
+
+
+def test_scorecard_reads_only_the_primary_paired_row_of_stage13b(tmp_path):
+    rows = [dict(kind="arm", name="COMB", cost_bps=10, mean_bps=25.7, ci_lo99_bps=-30.2, ci_hi99_bps=82.7, primary=np.nan),
+            dict(kind="paired_diff", name="COMB-BASE", cost_bps=0, mean_bps=22.0, ci_lo99_bps=-29.8, ci_hi99_bps=76.6, primary=False),
+            dict(kind="paired_diff", name="COMB-BASE", cost_bps=10, mean_bps=18.8, ci_lo99_bps=-32.7, ci_hi99_bps=73.3, primary=True)]
+    pd.DataFrame(rows).to_csv(tmp_path / "stage13b_incremental.csv", index=False)
+    s = scorecard(tmp_path)
+    s = s[s["exp_id"] == "exp_stage13b_incremental"]
+    assert len(s) == 1 and s.iloc[0]["estimate"] == pytest.approx(18.8) and s.iloc[0]["status"] == "Inconclusive"

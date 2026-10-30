@@ -82,6 +82,12 @@ def scorecard(outputs: Path) -> pd.DataFrame:
     if s12 is not None and (s12["setting"] == "S20").any():
         r = s12[s12["setting"] == "S20"].iloc[0]
         add("exp_stage12_samples", "Stage 12: IC with 20 sampled paths", GROUP_IC, "S20 (20 paths)", r["IC"], r["IC_lo99"], r["IC_hi99"])
+    s13b = load_table(outputs / "stage13b_incremental.csv")
+    if s13b is not None:
+        p = s13b[(s13b["kind"] == "paired_diff") & (s13b["primary"].astype(str) == "True")]
+        if len(p):
+            r = p.iloc[0]
+            add("exp_stage13b_incremental", "Stage 13b: Kronos + XSMOM_28 minus XSMOM_28, net per period at 10 bps", GROUP_NET, "COMB - BASE", r["mean_bps"], r["ci_lo99_bps"], r["ci_hi99_bps"])
     return pd.DataFrame(rows, columns=["exp_id", "experiment", "group", "signal", "estimate", "ci_lo", "ci_hi", "passed", "status", "lower_is_better"])
 
 
@@ -177,6 +183,11 @@ EXPERIMENTS = [
          config="5-day rebalance; TSMOM 28d, XSMOM 28d, REV 5d; terciles; equal weights", seed="none (deterministic); null seed 0", costs="10 bps one-way (assumed, unverified); shorts free (optimistic)",
          baselines="equal-weight long-only benchmark, random-signal null", command=".venv/bin/python -I scripts/stage13_signal_screen.py",
          caveat="Marginal pass: the interval's lower end is about 1 bp. The edge is concentrated in 2019-2021 (about +100 bps per period) and is about +2 bps per period from 2022; it fails at 20 bps; the universe has survivorship bias; short borrow and funding costs are not modelled."),
+    dict(id="exp_stage13b_incremental", name="Kronos on top of momentum", stage="Stage 13b", model="Kronos-small (pretrained, daily bars)", dataset="12 Binance USDT pairs, 1d, every second 5-day period 2019 to 2025-08",
+         script="scripts/stage13b_incremental.py", results=["stage13b_incremental.csv"], period="primary window 2019-01-01 to 2025-08-15 (half schedule, 242 periods)",
+         config="lookback 120, 5 bars ahead, 5 paths; rank blend of XSMOM_28 and the Kronos score; terciles", seed="window origin", costs="10 bps one-way (assumed, unverified); shorts free (optimistic)",
+         baselines="XSMOM_28 on the same assets", command=".venv/bin/python -I scripts/stage13b_incremental.py",
+         caveat="Kronos may have seen this period in pretraining, so even a pass would be only an upper bound. The baseline is weak on this half schedule and universe."),
     dict(id="exp_stage12_samples", name="Sampling noise (5 vs 20 paths)", stage="Stage 12", model="Kronos-small (pretrained)", dataset="BTCUSDT 1h, all 438 validation windows",
          script="scripts/stage12_samples.py", results=["stage12_samples.csv"], period="validation", config="V0 settings; sample_count 5 and 20",
          seed="window origin", costs="none (forecast quality only)", baselines="5-path forecast, random walk, momentum", command=".venv/bin/python -I scripts/stage12_samples.py"),

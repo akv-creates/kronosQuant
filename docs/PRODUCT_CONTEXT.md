@@ -37,7 +37,7 @@ Repository: `/Users/apple/Gen AI apps/kronosQuant`, GitHub `akv-creates/kronosQu
 | 9 | Fine-tuning Kronos-small on the BTC train split | done, primary failed |
 | 10 | Cross-sectional ranking test, 12 assets | done, primary failed |
 | 11 | Volatility forecast test, 12 assets | done, primary failed |
-| 12 | Sampling-noise test (5 vs 20 sampled paths, all 438 BTC validation windows) | **running; no result yet** |
+| 12 | Sampling-noise test (5 vs 20 sampled paths, all 438 BTC validation windows) | done, primary failed |
 | 13a | Daily signal screen: momentum and reversal, 12 assets, no model | done; 1 marginal pass (see section 4) |
 
 Key components:
@@ -71,7 +71,7 @@ Known limits:
 
 ## 4. Results so far (all on the validation split; none passed)
 
-**Scorecard: 0 of 14 pre-declared primary comparisons passed** (5 grid variants, the Stage 6 strategy, 1 fine-tune, 4 cross-section signals, 3 volatility baselines). Read with the dashboard's three states, **all 14 are Inconclusive**: none passed and none was reliably worse, because the tests lacked the power to tell skill from luck either way (the secondary results, such as path error reliably above the random walk, are separate).
+**Scorecard: 1 of 19 pre-declared primary comparisons passed** (5 grid variants, the Stage 6 strategy, 1 fine-tune, 4 cross-section signals, 3 volatility baselines, 3 daily signals, the 20-path test, the Stage 13b blend). The one pass is the marginal Stage 13a candidate XSMOM_28; one comparison (REV_5) is reliably worse; the other 17 are Inconclusive. Read with the dashboard's three states, **all 15 Kronos-related comparisons are Inconclusive**: none passed and none was reliably worse, because the tests lacked the power to tell skill from luck either way (the secondary results, such as path error reliably above the random walk, are separate).
 
 | Test | Headline (99% intervals) |
 |---|---|
@@ -82,8 +82,9 @@ Known limits:
 | Fine-tune (BTC train split, 1000 steps) | Token loss improved (validation 2.3636 to 2.2229) but IC -0.054 [-0.211, +0.101] and path error reliably worse than the pretrained model |
 | Stage 10, cross-section (12 assets x 100 dates) | Kronos mean rank IC -0.017 [-0.101, +0.076]; reversal baseline -0.003; momentum baseline +0.003; vol-scaled Kronos -0.047 |
 | Stage 11, volatility (11 non-BTC assets) | Kronos error 0.307 vs 0.319 (history average), 0.288 (last 48 bars), 0.315 (same hour); every difference interval includes 0; Kronos best on 0 of 12 assets. Kronos tracks volatility (rank IC +0.49) but the last-48-bars baseline does at least as well (+0.54); Kronos forecasts ran about 10% too high |
-| Stage 13a, daily signal screen (primary window 2019-2025-08, 10 bps, 99% block-bootstrap) | **XSMOM_28 passed marginally**: +46.7 bps per 5-day period [+1.0, +105.3]; TSMOM_28 inconclusive (+66.7 [-18.6, +162.1]); REV_5 reliably negative (-47.0 [-89.1, -11.6]). Edge is old: about +100 bps/period in 2019-2021, about +2 in 2022 to 2025-08, -1.1 in the recent window; interval includes 0 at 20 bps; long-only momentum earned less than equal-weight buy-and-hold (97.6 vs 129.2 bps); survivorship bias and free shorting are unfixed. Stage 13b (Kronos incremental, about 3 h CPU) is justified in the letter of the declared rule but the signal is weak |
-| Stage 12, 5 vs 20 sampled paths | **Pending.** Declared in `scripts/stage12_samples.py`. Log: `outputs/stage12_run.log`. Expected about 1 h 50 min on CPU (3.8 s/window at 5 paths, 13.8 s at 20) |
+| Stage 13a, daily signal screen (primary window 2019-2025-08, 10 bps, 99% block-bootstrap) | **XSMOM_28 passed marginally**: +46.7 bps per 5-day period [+1.0, +105.3]; TSMOM_28 inconclusive (+66.7 [-18.6, +162.1]); REV_5 reliably negative (-47.0 [-89.1, -11.6]). Edge is old: about +100 bps/period in 2019-2021, about +2 in 2022 to 2025-08, -1.1 in the recent window; interval includes 0 at 20 bps; long-only momentum earned less than equal-weight buy-and-hold (97.6 vs 129.2 bps); survivorship bias and free shorting are unfixed. Stage 13b (Kronos incremental on daily bars) was justified in the letter of the declared rule but the signal is weak |
+| Stage 13b, Kronos on top of XSMOM_28 (242 periods, every second 5-day period 2019 to 2025-08, 10 bps, 99% block-bootstrap) | **Inconclusive**: blend minus baseline +18.8 bps per period [-32.7, +73.3] (half-width 53 bps). Blend +25.7, baseline +6.9, Kronos alone -13.7, all inconclusive. Rank IC difference +0.036 [-0.011, +0.084]. Kronos and momentum scores are negatively correlated (-0.11). The difference was positive in 2019 to 2022 and flat or negative in 2023 to 2025 (later years, more plausibly outside pretraining, though its cutoff is not known). A pass would only have been an upper bound (contamination); the baseline is weak on this half schedule; 2,813 forecasts took about 18 minutes, so the earlier 3 to 6 hour estimates were wrong |
+| Stage 12, 5 vs 20 sampled paths (438 windows) | **Primary failed.** IC with 20 paths -0.0215 [-0.149, +0.118] vs -0.0387 [-0.169, +0.102] with 5; difference +0.017 [-0.029, +0.064]. The two forecasts correlate +0.953, so the 5-path forecast was already almost all signal and sampling noise does not explain the earlier results. Path error still reliably above the random walk; correlation with momentum -0.53; interval half-width 0.134 (an IC below that could not pass) |
 
 Paper-account demo (mechanics, not a finding): BTC always-long with no limits -41.56% (matches the Stage 6 buy-and-hold); with limits (max position 0.5, max order 0.25, daily loss 3%, kill switch 15%) -11.9% net, -15.1% max drawdown, kill switch tripped in November 2025. It lost less only because it stopped trading in a falling market.
 
@@ -163,8 +164,8 @@ Retail context ([SEBI FY25 study](https://www.business-standard.com/markets/news
 ## 9. Plan
 
 ### 9.1 Proposed next experiments ("signal factory"; awaiting the owner's go-ahead)
-1. **Finish Stage 12** (sampling noise). Interpretation rule is declared; a pass needs an observed IC of about 0.12 or more.
-2. **Stage 13, signal screen** (13a done, see section 4; 13b not started): pre-declared test of time-series momentum, cross-sectional momentum, reversal, carry (needs funding-rate data; availability not verified) and Kronos as one input, on **daily bars** across the 12 assets, using **longer history back to 2017** (classical signals have no pretraining-contamination problem, so more history is usable, which adds power). Count of signals tried is declared and corrected for. Cost-aware thresholds and low turnover from the start. Validation only; test split opened once, after a pass.
+1. **Stage 12 (sampling noise) is finished**: it failed; sampling noise is not the explanation (see section 4).
+2. **Stage 13, signal screen** (13a and 13b done, see section 4; 13b was run at every second period and is inconclusive; a full run is about 40 minutes of CPU): pre-declared test of time-series momentum, cross-sectional momentum, reversal, carry (needs funding-rate data; availability not verified) and Kronos as one input, on **daily bars** across the 12 assets, using **longer history back to 2017** (classical signals have no pretraining-contamination problem, so more history is usable, which adds power). Count of signals tried is declared and corrected for. Cost-aware thresholds and low turnover from the start. Validation only; test split opened once, after a pass.
 3. **Stacking test:** fit a small regularised model on train-period forecasts (Kronos, momentum, reversal, recent volatility) and evaluate it unchanged on validation: does Kronos add anything beyond simple rules? Cost: about 20 min per asset of train-split forecasting.
 4. **Store individual sample paths** (the cache keeps only the mean) and score probabilities and quantiles, not just the mean.
 5. **Other untested levers:** Kronos-base (102M; slower, needs a pinned revision), fine-tuning on all 12 assets (about 12x the data), shorter horizons (1-4 bars; best IC so far appeared at 4), other markets (daily stocks; needs a data-source check).
