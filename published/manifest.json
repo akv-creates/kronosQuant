@@ -1,0 +1,109 @@
+{
+  "published_utc": "2026-10-30T16:54:12Z",
+  "source_commit": "b88ca08",
+  "note": "Result CSVs are unchanged copies of outputs/. Derived files contain summary numbers only; raw exchange candles are not published.",
+  "files": {
+    "datasets_inventory.csv": {
+      "generated_utc": "2026-10-30T16:54:12Z",
+      "source": "derived summary (no raw prices)",
+      "sha256": "56f1ed6e811bcc57dc4f5760f8c247f267e258e6d346038599b071da8595cdc2",
+      "bytes": 1613
+    },
+    "equity_curves.csv": {
+      "generated_utc": "2026-10-30T16:43:47Z",
+      "source": "outputs/ (unchanged copy)",
+      "sha256": "1ebf3d5c16418c5e74992f2c264175de196cb762ad1ef39228360ad7ff58c508",
+      "bytes": 403041
+    },
+    "grid_BTCUSDT_1h.csv": {
+      "generated_utc": "2026-10-30T16:37:32Z",
+      "source": "outputs/ (unchanged copy)",
+      "sha256": "9fb382f347f55e45c4e2157376aeafd213800189b022bb0047332c954a4cd31b",
+      "bytes": 1244
+    },
+    "kronos_window_returns.csv": {
+      "generated_utc": "2026-10-30T16:43:47Z",
+      "source": "outputs/ (unchanged copy)",
+      "sha256": "4607b50a5f9a8f916f39b752b554fc85cbbee63990b6c2dadc81323466b846e9",
+      "bytes": 12452
+    },
+    "paper_account_examples.csv": {
+      "generated_utc": "2026-10-30T16:54:12Z",
+      "source": "derived summary (no raw prices)",
+      "sha256": "4d153f0d22422d60c1826854a646112b224001ae1e87311ede8c3a1a78fcd351",
+      "bytes": 2358
+    },
+    "splits.csv": {
+      "generated_utc": "2026-10-30T16:54:12Z",
+      "source": "derived summary (no raw prices)",
+      "sha256": "f06b50158896826e33fe23be6c706056aa6123a7bf2e0de2a848bb181995f527",
+      "bytes": 116
+    },
+    "stage10_cross_section.csv": {
+      "generated_utc": "2026-10-30T16:36:00Z",
+      "source": "outputs/ (unchanged copy)",
+      "sha256": "3eb81a0b23a4b933bf320638a95ec81a3edc40c7bba89e2b09d3bdd8454217a3",
+      "bytes": 434
+    },
+    "stage11_per_asset.csv": {
+      "generated_utc": "2026-10-30T16:35:55Z",
+      "source": "outputs/ (unchanged copy)",
+      "sha256": "b64ced9f9bb30ea25cb92b22cf483df85632363bb3008a359f6478674701151b",
+      "bytes": 1840
+    },
+    "stage11_primary.csv": {
+      "generated_utc": "2026-10-30T16:35:55Z",
+      "source": "outputs/ (unchanged copy)",
+      "sha256": "b6cc5b7d0b028e2684a59d955d9ee98e06c516ab28d492f091065624cd70784b",
+      "bytes": 449
+    },
+    "stage12_samples.csv": {
+      "generated_utc": "2026-10-30T16:36:08Z",
+      "source": "outputs/ (unchanged copy)",
+      "sha256": "8f32b9fb1d7d096a1e2ef93e1c4f32e259801be31f38afa1c14e86ed1399ba9b",
+      "bytes": 585
+    },
+    "stage13_by_year.csv": {
+      "generated_utc": "2026-10-30T16:35:48Z",
+      "source": "outputs/ (unchanged copy)",
+      "sha256": "ed1caac3bdac19291d2f8d70b8350adc0fd9995b721a0ece65e0b8acaf7535e5",
+      "bytes": 765
+    },
+    "stage13_screen.csv": {
+      "generated_utc": "2026-10-30T16:35:48Z",
+      "source": "outputs/ (unchanged copy)",
+      "sha256": "17d18632602917c592d1d1c556a2ef3f920bf612eec95a82a757343434f313b2",
+      "bytes": 16076
+    },
+    "stage13b_incremental.csv": {
+      "generated_utc": "2026-10-30T16:36:05Z",
+      "source": "outputs/ (unchanged copy)",
+      "sha256": "e9bbf149ccbc576fa11dbc5202692ddf30d1476dff2f8b7fb659aa565d0d929e",
+      "bytes": 2081
+    },
+    "stage3_BTCUSDT_1h_table.csv": {
+      "generated_utc": "2026-10-28T20:05:54Z",
+      "source": "outputs/ (unchanged copy)",
+      "sha256": "418c12170600a9a8e76696b97c106448d1bb38f20f927dd6451c64ea51ce4224",
+      "bytes": 487
+    },
+    "stage3_table.csv": {
+      "generated_utc": "2026-10-26T21:47:47Z",
+      "source": "outputs/ (unchanged copy)",
+      "sha256": "e73e60b6f9ab02b77d8f7844a7b08a6c797fe35167abf5857e538f28974ea01c",
+      "bytes": 532
+    },
+    "stage6_strategies.csv": {
+      "generated_utc": "2026-10-30T16:35:51Z",
+      "source": "outputs/ (unchanged copy)",
+      "sha256": "029a6a6d28c141c0462599a8345fd53f52c69daed670a288818fc17d6064e68a",
+      "bytes": 4507
+    },
+    "stage9_evaluate_val.csv": {
+      "generated_utc": "2026-10-30T16:37:32Z",
+      "source": "outputs/ (unchanged copy)",
+      "sha256": "113f41eef77e5c2021658e85da78ef9c12f8ecff3dfbd0b00b02b75d5e215199",
+      "bytes": 583
+    }
+  }
+}
