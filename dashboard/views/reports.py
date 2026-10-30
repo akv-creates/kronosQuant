@@ -3,7 +3,7 @@ import pandas as pd
 import streamlit as st
 
 import theme
-from common import OUT, ROOT, validation_period
+from common import OUT, PUBLIC_MODE, ROOT, validation_period
 from kronosquant.dashboard_data import code_version, declared_rule, experiment_table, load_manifest
 from kronosquant.experiments import EXPERIMENTS
 from kronosquant.glossary import GLOSSARY
@@ -34,7 +34,7 @@ def render() -> None:
     files = [OUT / f for f in e["results"]]
     manifest = load_manifest(OUT)
     generated = _generated(files, manifest)
-    version = code_version(ROOT, fallback=f"{manifest['source_commit']} (published results)" if manifest else "unknown")
+    version = code_version(ROOT, fallback=f"{manifest['source_commit']} (published results)" if manifest else "unknown", mark_dirty=not PUBLIC_MODE)
     left, right = st.columns([1.5, 1], gap="medium")
     with left, st.container(border=True):
         st.markdown(f'<div class="card-title">Experiment Details &nbsp; {theme.badge(exp.loc[pick, "outcome"])}</div>', unsafe_allow_html=True)

@@ -235,3 +235,19 @@ def test_scorecard_reads_only_the_primary_paired_row_of_stage13b(tmp_path):
     s = scorecard(tmp_path)
     s = s[s["exp_id"] == "exp_stage13b_incremental"]
     assert len(s) == 1 and s.iloc[0]["estimate"] == pytest.approx(18.8) and s.iloc[0]["status"] == "Inconclusive"
+
+
+def test_code_version_marks_uncommitted_changes_only_when_asked(tmp_path):
+    import subprocess
+
+    from kronosquant.dashboard_data import code_version
+
+    assert code_version(tmp_path, fallback="n/a") == "n/a"  # not a git repository
+    run = lambda *a: subprocess.run(["git", "-C", str(tmp_path), *a], check=True, capture_output=True)  # noqa: E731
+    run("init", "-q")
+    (tmp_path / "f.txt").write_text("x")
+    run("add", ".")
+    run("-c", "user.name=t", "-c", "user.email=t@example.com", "commit", "-qm", "c")
+    (tmp_path / "f.txt").write_text("changed")
+    assert code_version(tmp_path).endswith("(+ uncommitted changes)")
+    assert "uncommitted" not in code_version(tmp_path, mark_dirty=False)

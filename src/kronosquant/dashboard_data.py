@@ -216,9 +216,10 @@ def dataset_inventory(data_dir: Path) -> pd.DataFrame:
     return pd.DataFrame(rows, columns=["symbol", "interval", "rows", "first", "last", "gaps", "fingerprint", "fetched_utc"])
 
 
-def code_version(root: Path, fallback: str = "unknown") -> str:
+def code_version(root: Path, fallback: str = "unknown", mark_dirty: bool = True) -> str:
     """Short git commit of the checkout, marked when the working tree has uncommitted changes. `fallback` when git is unavailable
-    (for example on a hosted deployment, where the published manifest records the commit the results came from)."""
+    (for example on a hosted deployment, where the published manifest records the commit the results came from).
+    `mark_dirty=False` shows the commit only: a hosting platform's checkout can look modified even though it is exactly the pushed commit."""
     import subprocess
 
     def git(*args):
@@ -228,7 +229,7 @@ def code_version(root: Path, fallback: str = "unknown") -> str:
         head = git("rev-parse", "--short", "HEAD")
         if head.returncode != 0:
             return fallback
-        dirty = bool(git("status", "--porcelain").stdout.strip())
+        dirty = mark_dirty and bool(git("status", "--porcelain").stdout.strip())
         return head.stdout.strip() + (" (+ uncommitted changes)" if dirty else "")
     except (OSError, subprocess.SubprocessError):
         return fallback

@@ -4,6 +4,8 @@ An open research project that asks one question honestly: **can the open-source 
 
 KronosQuant is the test bench for answering that. It downloads public market data, produces and caches Kronos forecasts, scores them against simple rules, simulates trading with realistic costs, and shows every result in a dashboard, including the failures.
 
+**Live dashboard:** <https://kronosquant-kqnmvjqt5zxhytdtndqt3z.streamlit.app/> (a read-only view of the saved results; nothing is computed when you open it)
+
 > **Research and paper trading only.** Nothing here places real orders or uses real money, and nothing is investment advice. A forecast is not a trading signal.
 
 ## What the research has found so far
