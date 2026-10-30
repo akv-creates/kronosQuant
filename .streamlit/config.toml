@@ -16,5 +16,8 @@ primaryColor = "#3B82F6"
 toolbarMode = "minimal"
 showErrorDetails = "none"  # public visitors never see tracebacks or local paths
 
+[server]
+maxUploadSize = 5  # MB; the simulator's upload limit (the app enforces it again)
+
 [browser]
 gatherUsageStats = false

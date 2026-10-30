@@ -13,7 +13,7 @@ The hosted dashboard is a read-only view of saved results. It computes nothing w
 | Results shown | `published/` (committed snapshot; see `published/manifest.json`) |
 | Disclaimer | Shown under every page and in the README |
 
-On a fresh clone there is no `outputs/` or `data/` folder, so the dashboard automatically reads `published/`. Raw Binance candles are not published (the Binance data terms restrict redistribution), so the Strategies page shows precomputed paper-account runs instead of the interactive simulator.
+On a fresh clone there is no `outputs/` or `data/` folder, so the dashboard automatically reads `published/`. Raw Binance candles are not published (the Binance data terms restrict redistribution). The Strategies page therefore shows precomputed runs on the real validation data and offers an interactive simulator on simulated markets or on a CSV the visitor uploads (`src/kronosquant/demo_data.py`; processed in memory, never stored, limited to 20,000 rows and 5 MB, which `.streamlit/config.toml` also enforces).
 
 ## Deploy (about 5 minutes)
 

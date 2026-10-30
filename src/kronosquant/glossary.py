@@ -26,6 +26,7 @@ GLOSSARY = {
     "Look-ahead bias (leakage)": "Using information that would not have been known at the time. Tests in this project check that no forecast or signal can see later data.",
     "Survivorship bias": "Studying only assets that still exist today makes past results look better than what an investor would really have seen.",
     "Pretraining contamination": "Kronos may already have seen the historical period it is tested on during its own training, which would flatter its results. Only the part of history after its training cutoff is a clean test.",
+    "Simulated market": "Made-up prices generated from a random process (for example a random walk, a trend or a crash). They let you see how the paper account and its risk limits behave without real data. They say nothing about real markets or about Kronos.",
     "Paper account": "A simulated account that applies position, order, daily-loss and drawdown limits bar by bar. Fills are simulated; nothing is sent to an exchange.",
 }
 

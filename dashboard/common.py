@@ -36,10 +36,11 @@ def val_data(symbol: str) -> pd.DataFrame:
 
 
 @st.cache_data(show_spinner="Running the paper account…")
-def paper_run(asset: str, strategy: str, fee: float, slip: float, max_pos: float, max_order: float, max_day: float, max_dd: float):
-    """One paper-account run on the validation split. Cached, so moving a slider back to an earlier value is instant."""
+def paper_run(candles: pd.DataFrame, strategy: str, fee: float, slip: float, max_pos: float, max_order: float, max_day: float, max_dd: float):
+    """One paper-account run on the given candles (validation data, a simulated market or a visitor's upload). Cached on the data and settings,
+    so moving a slider back to an earlier value is instant."""
     limits = RiskLimits(max_position=max_pos, max_order=max_order, max_daily_loss=max_day, max_drawdown=max_dd)
-    res = run_paper(val_data(asset), STRATEGIES[strategy], limits=limits, fee_bps=fee, slippage_bps=slip)
+    res = run_paper(candles, STRATEGIES[strategy], limits=limits, fee_bps=fee, slippage_bps=slip)
     return res.frame, res.events, res.metrics
 
 

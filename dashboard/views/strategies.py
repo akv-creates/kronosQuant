@@ -4,30 +4,31 @@ import streamlit as st
 
 import charts
 import theme
-from common import FETCH_HINT, HAS_LOCAL_DATA, DATA, OUT, num, paper_run, pct, show_chart, val_data
+from common import DATA, HAS_LOCAL_DATA, OUT, num, paper_run, pct, show_chart, val_data
 from kronosquant.backtest import sharpe_ratio
 from kronosquant.dashboard_data import STRATEGIES, load_table, buy_and_hold_equity, equity_and_drawdown, events_by_rule, key_metrics, trade_markers, tripped_events
+from kronosquant.data import DataError
+from kronosquant.demo_data import MARKETS, MAX_UPLOAD_BYTES, MAX_UPLOAD_ROWS, parse_uploaded_candles, synthetic_candles
 from kronosquant.glossary import GLOSSARY
 
 WINDOWS = {"1W": 7, "1M": 30, "3M": 91, "All": None}
 COSTS_BPS = [0, 5, 10, 20, 50]
 
 
-def _config_card(symbols: list[str]) -> dict:
-    """The control panel. Returns the chosen settings as a dict of keyword arguments for `paper_run`."""
+def _config_card() -> dict:
+    """The control panel. Returns the chosen settings as keyword arguments for `paper_run` (the candles are added by the caller)."""
     with st.container(border=True):
         theme.card_title("Configuration")
-        c = st.columns(4, gap="medium")
-        asset = c[0].selectbox("Asset (1h)", symbols, index=symbols.index("BTCUSDT") if "BTCUSDT" in symbols else 0, help="Which market to replay. Only the validation period is used.")
-        strategy = c[1].selectbox("Placeholder strategy", list(STRATEGIES), help="Simple rules that show how the paper account works. They are not research findings and not recommendations.")
-        fee = c[2].number_input("Fee, bps one-way", 0.0, 100.0, 10.0, 1.0, help="Cost of each trade in basis points (1 bp = 0.01%). A round number, not a verified Binance fee.")
-        slip = c[3].number_input("Slippage, bps one-way", 0.0, 100.0, 0.0, 1.0, help="Extra cost from filling slightly worse than the quoted price.")
+        c = st.columns(3, gap="medium")
+        strategy = c[0].selectbox("Placeholder strategy", list(STRATEGIES), help="Simple rules that show how the paper account works. They are not research findings and not recommendations.")
+        fee = c[1].number_input("Fee, bps one-way", 0.0, 100.0, 10.0, 1.0, help="Cost of each trade in basis points (1 bp = 0.01%). A round number, not a verified Binance fee.")
+        slip = c[2].number_input("Slippage, bps one-way", 0.0, 100.0, 0.0, 1.0, help="Extra cost from filling slightly worse than the quoted price.")
         c = st.columns(4, gap="medium")
         max_pos = c[0].slider("Max position", 0.05, 1.0, 0.5, 0.05, help="The largest share of the account that can be invested at once (1.0 = fully invested).")
         max_order = c[1].slider("Max order size per bar", 0.05, 2.0, 0.25, 0.05, help="The most the position may change in a single bar. Forced exits are exempt.")
         max_day = c[2].slider("Max daily loss", 0.005, 0.5, 0.03, 0.005, format="%.3f", help="If the account loses this fraction in one day, trading halts until the next day.")
         max_dd = c[3].slider("Drawdown kill switch", 0.01, 0.9, 0.15, 0.01, help="If the account falls this far from its peak, trading stops for good.")
-    return dict(asset=asset, strategy=strategy, fee=fee, slip=slip, max_pos=max_pos, max_order=max_order, max_day=max_day, max_dd=max_dd)
+    return dict(strategy=strategy, fee=fee, slip=slip, max_pos=max_pos, max_order=max_order, max_day=max_day, max_dd=max_dd)
 
 
 def _overview_tab(frame, bench, m, km, max_dd) -> None:
@@ -122,8 +123,8 @@ def _published_view() -> None:
     if ex is None:
         theme.empty_state("The precomputed paper-account results are not part of this deployment.")
         return
-    st.info("This hosted version shows precomputed paper-account runs. The interactive version (change the fee, position limits and kill switch and watch the candles) runs on a local install: "
-            "it replays hourly Binance candles, which are not redistributed here. See the README for how to run it yourself.", icon=":material/info:")
+    st.info("These are precomputed paper-account runs on the real BTC validation data. The real Binance candles are not redistributed here, so to experiment interactively choose "
+            "**Simulated market** or **Upload your own candles** above (or run the dashboard locally with the data downloaded; see the README).", icon=":material/info:")
     pick = st.selectbox("Placeholder strategy", [s for s in ex["strategy"].unique() if s in STRATEGIES], help="Simple rules that show how the paper account works. They are not research findings and not recommendations.")
     mine, bench = ex[(ex["strategy"] == pick) & (ex["scenario"] == "your limits")].set_index("fee_bps"), ex[ex["scenario"] == "benchmark"].iloc[0]
     default = mine.loc[10]
@@ -150,17 +151,65 @@ def _published_view() -> None:
         theme.note("Smaller losses with limits usually mean the strategy stopped trading in a falling market, not that it found skill.")
 
 
+REAL, PRECOMPUTED, SYNTHETIC, UPLOAD = "Real data (validation split)", "Research runs (precomputed)", "Simulated market", "Upload your own candles"
+
+
+def _synthetic_source() -> pd.DataFrame:
+    with st.container(border=True):
+        theme.card_title("Simulated market", help=GLOSSARY["Simulated market"])
+        c = st.columns([1.7, 1, 1, 1], gap="medium")
+        kind = c[0].selectbox("Market type", list(MARKETS), help="; ".join(f"{k}: {v}" for k, v in MARKETS.items()))
+        n_bars = c[1].slider("Hourly bars", 500, 8000, 4000, 500, help="How long the simulated history is (4000 hours is about 5.5 months).")
+        volatility = c[2].slider("Volatility per bar, %", 0.1, 2.0, 0.5, 0.1, help="Typical size of one hour's price move. 0.5% is roughly crypto-sized.") / 100
+        seed = int(c[3].number_input("Random seed", 0, 9999, 0, 1, help="The same seed always gives the same market."))
+        st.caption(MARKETS[kind])
+    return synthetic_candles(kind, n_bars, seed, volatility)
+
+
+def _upload_source() -> pd.DataFrame | None:
+    with st.container(border=True):
+        theme.card_title("Upload your own candles", help="Your file is processed in memory for this session only and is not stored.")
+        st.caption(f"A CSV with columns time (timestamps, time, date or datetime), open, high, low, close and optionally volume. Regular bars (for example hourly) work best. Up to {MAX_UPLOAD_ROWS:,} rows and {MAX_UPLOAD_BYTES // 1_000_000} MB.")
+        sample = synthetic_candles(n_bars=300, seed=1).to_csv(index=False)
+        st.download_button("Download a sample file", sample, file_name="sample_candles.csv", mime="text/csv")
+        uploaded = st.file_uploader("Candle file (CSV)", type=["csv"], label_visibility="collapsed")
+        if uploaded is None:
+            theme.empty_state("Choose a CSV file above to run the paper account on your own data.")
+            return None
+        try:
+            candles = parse_uploaded_candles(uploaded.getvalue())
+        except DataError as err:
+            st.error(f"That file could not be used: {err}.")
+            return None
+        st.caption(f"Loaded {len(candles):,} bars from {candles['timestamps'].iloc[0]:%Y-%m-%d %H:%M} to {candles['timestamps'].iloc[-1]:%Y-%m-%d %H:%M}.")
+    return candles
+
+
+def _real_source() -> pd.DataFrame:
+    symbols = [f.name.replace("_1h.csv", "") for f in sorted(DATA.glob("*_1h.csv"))]
+    asset = st.selectbox("Asset (1h)", symbols, index=symbols.index("BTCUSDT") if "BTCUSDT" in symbols else 0, help="Which market to replay. Only the validation period is used.")
+    return val_data(asset)
+
+
 def render() -> None:
-    theme.page_header("Strategy Investigation", "Run a placeholder strategy through the paper account and inspect it. Simulated fills only.", chip="Paper account · validation split", badge_label="Placeholder")
-    if not HAS_LOCAL_DATA:
+    theme.page_header("Strategy Investigation", "Run a placeholder strategy through the paper account and inspect it. Simulated fills only.", chip="Paper account · simulated fills", badge_label="Placeholder")
+    options = [REAL if HAS_LOCAL_DATA else PRECOMPUTED, SYNTHETIC, UPLOAD]
+    source = st.segmented_control("Data source", options, default=options[0], key="strategy_source") or options[0]
+    if source == PRECOMPUTED:
         if (OUT / "paper_account_examples.csv").exists():
             _published_view()
         else:
-            theme.empty_state("No hourly market data is on this machine yet, so there is nothing to replay.", FETCH_HINT)
+            theme.empty_state("No precomputed paper-account results are part of this deployment. Pick a simulated market or upload a file instead.")
         return
-    files = sorted(DATA.glob("*_1h.csv"))
-    cfg = _config_card([f.name.replace("_1h.csv", "") for f in files])
-    df = val_data(cfg["asset"])
+    if source == REAL:
+        df = _real_source()
+    else:
+        st.warning(f"**Demo data.** {'Prices here are simulated.' if source == SYNTHETIC else 'This is your uploaded file.'} The results below illustrate how the paper account and its risk limits behave; "
+                   "they are not part of the research results and say nothing about Kronos.", icon=":material/science:")
+        df = _synthetic_source() if source == SYNTHETIC else _upload_source()
+        if df is None:
+            return
+    cfg = {"candles": df, **_config_card()}
     frame, events, m = paper_run(**cfg)
     bench = buy_and_hold_equity(df)
     km = key_metrics(frame)

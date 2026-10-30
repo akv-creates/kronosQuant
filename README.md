@@ -84,7 +84,7 @@ The dashboard can be hosted for anyone to open without installing anything (see 
 
 - It reads a small snapshot of saved results from `published/`, so visitors never trigger model inference, backtests or downloads. `scripts/publish_results.py` rebuilds the snapshot, and each file's SHA-256 is recorded in `published/manifest.json`.
 - It needs only `requirements.txt` (Streamlit, Plotly, pandas, numpy), not PyTorch.
-- Raw exchange candles are not published, because Binance's data terms restrict redistribution. The hosted Strategies page therefore shows precomputed paper-account runs; the interactive version runs on a local install with the data downloaded.
+- Raw exchange candles are not published, because Binance's data terms restrict redistribution. The hosted Strategies page therefore offers three things: precomputed paper-account runs on the real validation data, an interactive simulator on **simulated markets** (random walk, trends, choppy, crash), and an interactive simulator on **a CSV you upload** (processed in memory, never stored, at most 20,000 rows and 5 MB). Simulated and uploaded data are labelled as demos and are never part of the research results. The version that replays real Binance candles runs on a local install with the data downloaded.
 - It holds no secrets and needs none.
 
 ## The dashboard
@@ -93,7 +93,7 @@ The dashboard can be hosted for anyone to open without installing anything (see 
 |---|---|
 | Home | A summary of the evidence, headline counts, strategy curves and every primary comparison with its 99% interval |
 | Experiments | Every experiment, its outcome under the declared rule, and the caveats that go with a pass |
-| Strategies | A paper account you can configure (fees, position limits, kill switch) and run on placeholder strategies |
+| Strategies | A paper account you can configure (fees, position limits, kill switch) and run on placeholder strategies, using real validation data (local), a simulated market or your own uploaded candles |
 | Models | Kronos-small variants against the random walk, with pinned model revisions |
 | Datasets | Downloaded data, row counts, gaps, fingerprints and the chronological split |
 | Reports | How to reproduce each experiment, its declared rule, downloadable results and a glossary |
@@ -109,6 +109,7 @@ src/kronosquant/     the library
   forecast.py, cache.py  Kronos inference (pinned revisions) and the resumable forecast cache
   baselines.py, metrics.py, evaluation.py, crosssection.py, volatility.py   scoring and statistics
   backtest.py, strategy.py, portfolio.py, paper.py   trading simulations and the risk-limited paper account
+  demo_data.py         simulated markets and the validated CSV-upload parser used by the hosted simulator
   finetune.py          optional fine-tuning loop
   experiments.py, dashboard_data.py, glossary.py   what the dashboard reads
 scripts/             one runnable script per experiment (rule declared in each header)
