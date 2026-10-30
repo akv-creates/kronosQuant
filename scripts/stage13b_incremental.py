@@ -42,12 +42,12 @@ import pandas as pd  # noqa: E402
 from kronosquant.cache import ForecastCache, run_walk_forward  # noqa: E402
 from kronosquant.crosssection import rank_ic_by_date  # noqa: E402
 from kronosquant.data import load_candles  # noqa: E402
-from kronosquant.forecast import ROOT, forecast_config, forecast_window, load_predictor  # noqa: E402
+from kronosquant.config import ROOT, UNIVERSE  # noqa: E402
+from kronosquant.forecast import forecast_config, make_forecaster  # noqa: E402
 from kronosquant.metrics import stationary_bootstrap_ci  # noqa: E402
 from kronosquant.portfolio import decision_indices, period_stats, rank_blend, run_portfolio, trailing_return, xs_weights  # noqa: E402
 from kronosquant.splits import Window  # noqa: E402
 
-UNIVERSE = ["BTCUSDT", "ETHUSDT", "BNBUSDT", "XRPUSDT", "ADAUSDT", "DOGEUSDT", "LTCUSDT", "TRXUSDT", "LINKUSDT", "BCHUSDT", "ETCUSDT", "XLMUSDT"]
 TEST_START = pd.Timestamp("2026-03-23")  # rows from here on are never loaded
 FIRST_DECISION, STEP, EVERY, LEVEL, MEAN_BLOCK, N_BOOT, MIN_ASSETS = "2018-12-31", 5, 2, 0.99, 2.0, 5000, 6
 WINDOW = (pd.Timestamp("2019-01-01"), pd.Timestamp("2025-08-15"))
@@ -83,7 +83,6 @@ print(f"forecasts needed: {total} ({', '.join(f'{s[:-4]} {len(v)}' for s, v in n
 if args.count:
     sys.exit(0)
 
-predictor = None
 budget = args.limit
 for s in UNIVERSE:
     c = frames[s]
@@ -94,11 +93,7 @@ for s in UNIVERSE:
         windows.sort(key=lambda w: w.origin)
         budget -= sum(1 for w in windows if not cache.has(w.origin))
 
-    def forecast_one(w, c=c):
-        global predictor
-        if predictor is None:
-            predictor = load_predictor(args.device)
-        return forecast_window(predictor, c, w.origin, w.lookback, w.pred_len, seed=w.origin, T=KRONOS["T"], top_p=KRONOS["top_p"], sample_count=KRONOS["sample_count"])
+    forecast_one = make_forecaster(c, args.device, T=KRONOS["T"], top_p=KRONOS["top_p"], sample_count=KRONOS["sample_count"], top_k=KRONOS["top_k"])
 
     print(f"== {s}", flush=True)
     t0 = time.time()

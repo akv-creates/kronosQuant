@@ -23,8 +23,9 @@ from kronosquant.baselines import BASELINES  # noqa: E402
 from kronosquant.cache import ForecastCache, run_walk_forward  # noqa: E402
 from kronosquant.data import load_candles  # noqa: E402
 from kronosquant.evaluation import actual_paths, baseline_paths, paths_from_forecasts, select_windows  # noqa: E402
-from kronosquant.forecast import ROOT, forecast_config, forecast_window, load_predictor  # noqa: E402
-from kronosquant.metrics import bootstrap_ic_ci, directional_accuracy, end_mae, information_coefficient, paired_bootstrap_ci, path_mae  # noqa: E402
+from kronosquant.config import CONFIDENCE_LEVEL as LEVEL, ROOT  # noqa: E402
+from kronosquant.forecast import forecast_config, make_forecaster  # noqa: E402
+from kronosquant.metrics import bootstrap_ic_ci, directional_accuracy, information_coefficient, paired_bootstrap_ci, path_mae  # noqa: E402
 from kronosquant.splits import chronological_split  # noqa: E402
 
 BASE = dict(lookback=400, pred_len=12, T=1.0, top_p=0.9, top_k=0, sample_count=5)
@@ -35,7 +36,6 @@ GRID = {
     "V3_lookback128": {**BASE, "lookback": 128},
     "V4_horizon4": {**BASE, "pred_len": 4},
 }
-LEVEL = 0.99
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--csv", default="data/BTCUSDT_1h.csv")
@@ -49,7 +49,6 @@ candles = load_candles(ROOT / args.csv)
 split = chronological_split(len(candles))["val"]
 print(f"{len(GRID)} variants declared; running {args.variants}; {args.windows} windows each; level {LEVEL:.0%}", flush=True)
 
-predictor = None
 rows = []
 out = ROOT / "outputs"
 out.mkdir(exist_ok=True)
@@ -59,11 +58,7 @@ for name in args.variants:
     config = forecast_config(candles, args.device, cfg["lookback"], cfg["pred_len"], cfg["T"], cfg["top_p"], cfg["sample_count"], cfg["top_k"])
     cache = ForecastCache(out / "cache", config)
 
-    def forecast_one(w, cfg=cfg):
-        global predictor
-        if predictor is None:
-            predictor = load_predictor(args.device)
-        return forecast_window(predictor, candles, w.origin, w.lookback, w.pred_len, seed=w.origin, T=cfg["T"], top_p=cfg["top_p"], top_k=cfg["top_k"], sample_count=cfg["sample_count"])
+    forecast_one = make_forecaster(candles, args.device, T=cfg["T"], top_p=cfg["top_p"], sample_count=cfg["sample_count"], top_k=cfg["top_k"])
 
     print(f"\n== {name}: {cfg}", flush=True)
     t0 = time.time()

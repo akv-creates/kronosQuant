@@ -38,11 +38,10 @@ import numpy as np  # noqa: E402
 import pandas as pd  # noqa: E402
 
 from kronosquant.data import load_candles  # noqa: E402
-from kronosquant.forecast import ROOT  # noqa: E402
+from kronosquant.config import ROOT, UNIVERSE  # noqa: E402
 from kronosquant.metrics import stationary_bootstrap_ci  # noqa: E402
 from kronosquant.portfolio import decision_indices, long_only_weights, period_stats, run_portfolio, trailing_return, tsmom_weights, xs_weights  # noqa: E402
 
-UNIVERSE = ["BTCUSDT", "ETHUSDT", "BNBUSDT", "XRPUSDT", "ADAUSDT", "DOGEUSDT", "LTCUSDT", "TRXUSDT", "LINKUSDT", "BCHUSDT", "ETCUSDT", "XLMUSDT"]
 TEST_START = pd.Timestamp("2026-03-23")  # rows from here on are never loaded
 FIRST_DECISION, STEP, LEVEL, MEAN_BLOCK, N_BOOT, N_NULL = "2018-12-31", 5, 0.99, 4.0, 5000, 300
 PPY = 365.0 / STEP

@@ -33,13 +33,13 @@ from kronosquant.baselines import BASELINES  # noqa: E402
 from kronosquant.cache import ForecastCache, run_walk_forward  # noqa: E402
 from kronosquant.data import load_candles  # noqa: E402
 from kronosquant.evaluation import actual_paths, baseline_paths, paths_from_forecasts, select_windows  # noqa: E402
-from kronosquant.forecast import ROOT, forecast_config, forecast_window, load_predictor  # noqa: E402
+from kronosquant.config import CONFIDENCE_LEVEL as LEVEL, KRONOS_V0, ROOT  # noqa: E402
+from kronosquant.forecast import forecast_config, make_forecaster  # noqa: E402
 from kronosquant.metrics import bootstrap_ic_ci, directional_accuracy, information_coefficient, paired_bootstrap_ci, paired_ic_diff_ci, path_mae  # noqa: E402
 from kronosquant.splits import chronological_split  # noqa: E402
 
-BASE = dict(lookback=400, pred_len=12, T=1.0, top_p=0.9, top_k=0)
+BASE = {k: v for k, v in KRONOS_V0.items() if k != "sample_count"}
 SETTINGS = {"S5": {**BASE, "sample_count": 5}, "S20": {**BASE, "sample_count": 20}}
-LEVEL = 0.99
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--device", default="cpu")
@@ -50,16 +50,11 @@ split = chronological_split(len(candles))["val"]
 windows = select_windows(candles, split, BASE["lookback"], BASE["pred_len"], 10_000, "1h")  # n larger than available: keeps all
 print(f"{len(windows)} validation windows, level {LEVEL:.0%}", flush=True)
 
-predictor = None
 paths = {}
 for name, cfg in SETTINGS.items():
     cache = ForecastCache(ROOT / "outputs" / "cache", forecast_config(candles, args.device, cfg["lookback"], cfg["pred_len"], cfg["T"], cfg["top_p"], cfg["sample_count"], cfg["top_k"]))
 
-    def forecast_one(w, cfg=cfg):
-        global predictor
-        if predictor is None:
-            predictor = load_predictor(args.device)
-        return forecast_window(predictor, candles, w.origin, w.lookback, w.pred_len, seed=w.origin, T=cfg["T"], top_p=cfg["top_p"], top_k=cfg["top_k"], sample_count=cfg["sample_count"])
+    forecast_one = make_forecaster(candles, args.device, T=cfg["T"], top_p=cfg["top_p"], sample_count=cfg["sample_count"], top_k=cfg["top_k"])
 
     print(f"\n== {name}: {cfg}", flush=True)
     t0 = time.time()

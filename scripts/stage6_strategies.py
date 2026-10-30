@@ -26,15 +26,14 @@ from kronosquant.baselines import BASELINES  # noqa: E402
 from kronosquant.cache import ForecastCache, load_cached  # noqa: E402
 from kronosquant.data import load_candles  # noqa: E402
 from kronosquant.evaluation import baseline_paths, paths_from_forecasts, select_windows  # noqa: E402
-from kronosquant.forecast import ROOT, forecast_config  # noqa: E402
+from kronosquant.config import CONFIDENCE_LEVEL as LEVEL, KRONOS_V0 as V0, ROOT  # noqa: E402
+from kronosquant.forecast import forecast_config  # noqa: E402
 from kronosquant.metrics import paired_bootstrap_ci  # noqa: E402
 from kronosquant.splits import chronological_split  # noqa: E402
 from kronosquant.strategy import directions_from_forecast, window_returns, window_signal  # noqa: E402
 
-V0 = dict(lookback=400, pred_len=12, T=1.0, top_p=0.9, top_k=0, sample_count=5)  # same values as stage3_grid.py V0_baseline
 COSTS = [0, 5, 10, 20]
 PRIMARY_COST = 10
-LEVEL = 0.99
 N_NULL = 1000
 
 parser = argparse.ArgumentParser()

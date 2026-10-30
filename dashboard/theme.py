@@ -29,6 +29,7 @@ CSS = f"""
   .kpi .v {{ color:{NAVY}; font-size:2rem; font-weight:650; line-height:1.2; font-variant-numeric:tabular-nums; }}
   .kpi .s {{ color:{SLATE}; font-size:0.78rem; }}
   .kpi .s.good {{ color:#047857; }} .kpi .s.bad {{ color:#B91C1C; }} .kpi .s.warn {{ color:#B45309; }}
+  .kpi-grid {{ display:grid; grid-template-columns:repeat(auto-fit, minmax(150px, 1fr)); gap:16px; }}
   .badge {{ display:inline-block; padding:2px 10px; border-radius:999px; font-size:0.72rem; font-weight:600; white-space:nowrap; }}
   .tbl-wrap {{ width:100%; max-width:100%; overflow-x:auto; }}
   .rows {{ width:100%; border-collapse:collapse; font-size:0.84rem; }}
@@ -40,6 +41,17 @@ CSS = f"""
   .kv td:first-child {{ color:{SLATE}; width:34%; }}
   .kv td:last-child {{ color:{NAVY}; word-break:break-word; }}
   .note {{ color:{SLATE}; font-size:0.78rem; }}
+  .info {{ display:inline-block; width:14px; height:14px; line-height:14px; border-radius:50%; background:{LIGHT}; color:#475569; font-size:0.66rem; font-weight:700; text-align:center; cursor:help; vertical-align:middle; }}
+  .empty {{ border:1px dashed #CBD5E1; border-radius:10px; padding:16px 18px; color:{SLATE}; font-size:0.86rem; background:#F8FAFC; }}
+  .empty code {{ background:#E2E8F0; padding:1px 6px; border-radius:4px; color:{NAVY}; }}
+  .side-note {{ color:#94A3B8; font-size:0.74rem; line-height:1.4; padding:6px 4px; }}
+  @media (max-width: 768px) {{
+    .block-container {{ padding: 3.6rem 0.9rem 2rem 0.9rem; }}  /* top padding clears the logo header Streamlit shows on phones */
+    .page-title {{ font-size:1.3rem; }}
+    .page-head {{ flex-direction:column; }}
+    .kpi .v {{ font-size:1.55rem; }}
+    .kpi {{ padding:10px 14px; }}
+  }}
   .stButton > button[kind="primary"] {{ border-radius:8px; font-weight:600; }}
   button[data-baseweb="tab"] {{ font-size:0.9rem; font-weight:500; }}
 </style>
@@ -61,18 +73,33 @@ def page_header(title: str, subtitle: str, chip: str = "", badge_label: str = ""
                 f'<div class="page-sub">{html.escape(subtitle)}</div></div>{right}</div>', unsafe_allow_html=True)
 
 
-def kpi(label: str, value: str, sub: str = "", tone: str = "") -> str:
-    return f'<div class="kpi"><div class="l">{html.escape(label)}</div><div class="v">{html.escape(value)}</div><div class="s {tone}">{html.escape(sub)}&nbsp;</div></div>'
+def kpi(label: str, value: str, sub: str = "", tone: str = "", help: str = "") -> str:
+    """A KPI card. `help` is a plain-language explanation shown as a tooltip and marked with a small (i)."""
+    tip = f' title="{html.escape(help, quote=True)}"' if help else ""
+    mark = ' <span class="info">i</span>' if help else ""
+    return (f'<div class="kpi"{tip}><div class="l">{html.escape(label)}{mark}</div><div class="v">{html.escape(value)}</div>'
+            f'<div class="s {tone}">{html.escape(sub)}&nbsp;</div></div>')
 
 
 def kpi_row(cards: list[str]) -> None:
-    cols = st.columns(len(cards), gap="medium")
-    for col, card in zip(cols, cards):
-        col.markdown(card, unsafe_allow_html=True)
+    """KPI cards in a responsive grid: as many per row as fit (at least 150px each), wrapping on narrow screens."""
+    st.markdown(f'<div class="kpi-grid">{"".join(cards)}</div>', unsafe_allow_html=True)
 
 
-def card_title(text: str) -> None:
-    st.markdown(f'<div class="card-title">{html.escape(text)}</div>', unsafe_allow_html=True)
+def card_title(text: str, help: str = "") -> None:
+    mark = f' <span class="info" title="{html.escape(help, quote=True)}">i</span>' if help else ""
+    st.markdown(f'<div class="card-title">{html.escape(text)}{mark}</div>', unsafe_allow_html=True)
+
+
+def empty_state(what: str, fix: str = "") -> None:
+    """A friendly 'nothing here yet' box: say what is missing and, if known, the one command that creates it."""
+    how = f" Create it with <code>{html.escape(fix)}</code> from the repository root." if fix else ""
+    st.markdown(f'<div class="empty">{html.escape(what)}{how}</div>', unsafe_allow_html=True)
+
+
+def note(text: str) -> None:
+    """Small grey explanatory text under a chart or table. Plain text only (escaped)."""
+    st.markdown(f'<div class="note">{html.escape(text)}</div>', unsafe_allow_html=True)
 
 
 def kv_table(pairs: list[tuple[str, str]]) -> str:

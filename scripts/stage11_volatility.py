@@ -32,14 +32,13 @@ import pandas as pd  # noqa: E402
 from kronosquant.cache import ForecastCache, load_cached  # noqa: E402
 from kronosquant.data import load_candles  # noqa: E402
 from kronosquant.evaluation import select_windows  # noqa: E402
-from kronosquant.forecast import ROOT, forecast_config  # noqa: E402
+from kronosquant.config import CONFIDENCE_LEVEL as LEVEL, KRONOS_V0 as V0, ROOT, UNIVERSE  # noqa: E402
+from kronosquant.forecast import forecast_config  # noqa: E402
 from kronosquant.metrics import information_coefficient, paired_bootstrap_ci  # noqa: E402
 from kronosquant.splits import chronological_split  # noqa: E402
 from kronosquant.volatility import candle_range, kronos_range, log_ratio_errors, range_baselines, realized_range  # noqa: E402
 
-UNIVERSE = ["BTCUSDT", "ETHUSDT", "BNBUSDT", "XRPUSDT", "ADAUSDT", "DOGEUSDT", "LTCUSDT", "TRXUSDT", "LINKUSDT", "BCHUSDT", "ETCUSDT", "XLMUSDT"]
-V0 = dict(lookback=400, pred_len=12, T=1.0, top_p=0.9, top_k=0, sample_count=5)
-LEVEL, N_DATES, BASELINES = 0.99, 100, ["hist_all", "hist_recent", "same_time_of_day"]
+N_DATES, BASELINES = 100, ["hist_all", "hist_recent", "same_time_of_day"]
 
 data = {s: load_candles(ROOT / "data" / f"{s}_1h.csv") for s in UNIVERSE}
 btc = data["BTCUSDT"]

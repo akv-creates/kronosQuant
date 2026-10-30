@@ -13,7 +13,8 @@ from kronosquant.baselines import BASELINES  # noqa: E402
 from kronosquant.cache import ForecastCache, run_walk_forward  # noqa: E402
 from kronosquant.evaluation import actual_paths, baseline_paths, paths_from_forecasts, select_windows  # noqa: E402
 from kronosquant.data import load_candles  # noqa: E402
-from kronosquant.forecast import ROOT, forecast_config, forecast_window, load_predictor, load_sample_candles  # noqa: E402
+from kronosquant.config import ROOT  # noqa: E402
+from kronosquant.forecast import forecast_config, load_sample_candles, make_forecaster  # noqa: E402
 from kronosquant.metrics import (  # noqa: E402
     directional_accuracy,
     end_mae,
@@ -47,14 +48,7 @@ T, TOP_P = 1.0, 0.9
 config = forecast_config(candles, args.device, args.lookback, args.pred_len, T, TOP_P, args.sample_count)
 cache = ForecastCache(ROOT / "outputs" / "cache", config)
 print("cache:", cache.dir)
-predictor = None
-
-
-def forecast_one(w):
-    global predictor
-    if predictor is None:  # load the model only if something is actually missing from the cache
-        predictor = load_predictor(args.device)
-    return forecast_window(predictor, candles, w.origin, w.lookback, w.pred_len, seed=w.origin, T=T, top_p=TOP_P, sample_count=args.sample_count)
+forecast_one = make_forecaster(candles, args.device, T=T, top_p=TOP_P, sample_count=args.sample_count)  # loads the model only if the cache is missing something
 
 
 t0 = time.time()

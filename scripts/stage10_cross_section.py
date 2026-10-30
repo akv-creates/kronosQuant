@@ -31,13 +31,11 @@ from kronosquant.cache import ForecastCache, run_walk_forward  # noqa: E402
 from kronosquant.crosssection import rank_ic_by_date  # noqa: E402
 from kronosquant.data import load_candles  # noqa: E402
 from kronosquant.evaluation import actual_paths, baseline_paths, paths_from_forecasts, select_windows  # noqa: E402
-from kronosquant.forecast import ROOT, forecast_config, forecast_window, load_predictor  # noqa: E402
+from kronosquant.config import CONFIDENCE_LEVEL as LEVEL, KRONOS_V0 as V0, ROOT, UNIVERSE  # noqa: E402
+from kronosquant.forecast import forecast_config, make_forecaster  # noqa: E402
 from kronosquant.metrics import paired_bootstrap_ci  # noqa: E402
 from kronosquant.splits import chronological_split  # noqa: E402
 
-UNIVERSE = ["BTCUSDT", "ETHUSDT", "BNBUSDT", "XRPUSDT", "ADAUSDT", "DOGEUSDT", "LTCUSDT", "TRXUSDT", "LINKUSDT", "BCHUSDT", "ETCUSDT", "XLMUSDT"]
-V0 = dict(lookback=400, pred_len=12, T=1.0, top_p=0.9, top_k=0, sample_count=5)  # same values as stage3_grid.py V0_baseline
-LEVEL = 0.99
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--dates", type=int, default=100)
@@ -53,17 +51,12 @@ split = chronological_split(len(btc))["val"]
 windows = select_windows(btc, split, V0["lookback"], V0["pred_len"], args.dates, "1h")
 print(f"{len(UNIVERSE)} assets x {len(windows)} dates = {len(UNIVERSE) * len(windows)} forecasts; val rows {split.start}..{split.stop - 1}", flush=True)
 
-predictor = None
 pred_cols, actual_cols, mom_cols, vol_cols = [], [], [], []
 for s in UNIVERSE:
     c = data[s]
     cache = ForecastCache(ROOT / "outputs" / "cache", forecast_config(c, args.device, V0["lookback"], V0["pred_len"], V0["T"], V0["top_p"], V0["sample_count"], V0["top_k"]))
 
-    def forecast_one(w, c=c):
-        global predictor
-        if predictor is None:
-            predictor = load_predictor(args.device)
-        return forecast_window(predictor, c, w.origin, w.lookback, w.pred_len, seed=w.origin, T=V0["T"], top_p=V0["top_p"], sample_count=V0["sample_count"])
+    forecast_one = make_forecaster(c, args.device, T=V0["T"], top_p=V0["top_p"], sample_count=V0["sample_count"], top_k=V0["top_k"])
 
     print(f"== {s}", flush=True)
     t0 = time.time()

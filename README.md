@@ -1,36 +1,126 @@
-# kronosQuant
+# KronosQuant
 
-Educational research project: forecasting market candles with the open-source [Kronos](https://github.com/shiyu-coder/Kronos) foundation model, then testing honestly whether any forecast skill survives baselines, costs, and out-of-sample evaluation.
+An open research project that asks one question honestly: **can the open-source [Kronos](https://github.com/shiyu-coder/Kronos) candlestick model forecast markets well enough to be useful, once you test it against simple baselines, trading costs and data it has not seen?**
 
-**Research and paper trading only. Nothing here is financial advice, and a forecast is not a trading signal.**
+KronosQuant is the test bench for answering that. It downloads public market data, produces and caches Kronos forecasts, scores them against simple rules, simulates trading with realistic costs, and shows every result in a dashboard, including the failures.
 
-## Status
-- Stage 0 (environment, layout): done.
-- Stage 1 (first forecast): script runs on CPU and MPS.
-- Stage 2 (data validation, chronological splits, leakage tests): done.
-- Stage 3 (forecast quality vs baselines, validation split only): done. First result, one stock (HK 09988), 100 non-overlapping 1-hour windows, Kronos-small zero-shot with default sampling: Kronos did **not** beat the random-walk baseline on error (its extra error was statistically distinguishable from zero), and its directional accuracy (49.0%, n=96) matched the base rate (49.0% of windows rose). This is a narrow result, not a verdict on Kronos. The test split is untouched. Diagnostics (`scripts/stage3_diagnostics.py`): shrinking Kronos toward zero never helped, and its end-of-hour forecast correlated -0.51 with the previous hour's move (it mostly predicts reversals), which this stock did not show.
-- Real data: Binance BTCUSDT 1h (3 years, no gaps) integrated. Same Stage 3 test, 100 validation windows of 12 hours: Kronos-small again did **not** beat the random walk on return error (its excess error was distinguishable from zero), direction 54% (n=100) versus a 57% base rate of up-moves, and its end-of-window forecast again correlated about -0.53 with the previous move (reversal tilt) that the data did not show. Volatility check (cached forecasts, predicted vs actual candle range): on Hong Kong, Kronos beat flat baselines but a same-time-of-day baseline beat Kronos (point estimate; its interval just touched zero); on BTC all baselines and Kronos were statistically indistinguishable. This volatility check was chosen after seeing the return results, so treat it as exploratory. Two assets, one model size, default sampling: not a general verdict.
-- Pre-declared inference grid (`scripts/stage3_grid.py`, BTC 1h, validation split, 300 non-overlapping windows per variant, CPU, primary criterion: lower end of the 99% bootstrap interval for IC above zero). **No variant passed.** IC (99% interval): baseline -0.062 [-0.225, +0.096]; greedy (top_k=1) -0.022 [-0.179, +0.135]; T=0.5 -0.068 [-0.230, +0.090]; lookback 128 +0.062 [-0.096, +0.202]; horizon 4 bars +0.098 [-0.076, +0.261]. Direction accuracy was 47.7% to 53.0% against base rates of 49.0% (52.7% for the 4-bar horizon). In all five variants Kronos had higher path error than the random walk, and the 99% interval for the excess error excluded zero (excess +0.0001 to +0.0013 in mean absolute log-return). The forecast stayed anti-correlated with the previous move (corr -0.37 to -0.52) in every variant. The best observed IC (+0.098) is about 1.7 standard errors from zero (standard error about 0.058 at n=300), the kind of maximum you expect from five noisy draws. Nothing was replicated on the HK sample because nothing passed; the test split is untouched. Scope: one asset, one model size, 5 settings; this does not rule out gains from fine-tuning, a larger model, or other assets.
-- Stage 6 (strategy research, first pass; `scripts/stage6_strategies.py`, rule declared in its docstring before running): cached V0 Kronos forecasts on BTC 1h validation (299 windows of 12 bars, 2025-08-15 to 2026-03-22, flat between windows, costs are all-in one-way bps and the real Binance costs are unverified). **Primary failed**: Kronos long/short at 10 bps lost 47.7% net (-20.5 bps per window, 99% CI [-43.3, +1.4]). At 0 bps it still lost 23.2% gross; a random long/short null at 10 bps had a median of -38.9%, so Kronos (-47.7%) was within the random range (73% of coin-flip strategies did at least as well). Long-only Kronos: -36.1% net at 10 bps. The same windows held long all the time: -40.8%; buy-and-hold over the whole split: -41.6% (this was a falling market, so every always-invested comparison looks bad). Secondary, not used to rescue the primary: a momentum rule lost about as much as Kronos, and its opposite (contrarian) made +19.7% gross but -24.2% net at 10 bps, with a CI spanning zero at 0 bps; this is one bear-market period, so it is a hint to be tested out of sample, not a result. We deliberately did not flip Kronos's sign. The test split is untouched.
-- Fine-tuning (Stage 9a/9b; `scripts/stage9_finetune.py`, `scripts/stage9_evaluate.py`, protocols declared in their headers before running): Kronos-small predictor fine-tuned on the BTC 1h train split only (first 80% fit, last 20% chose the checkpoint), tokenizer frozen, 1000 steps, lr 1e-5, about 50 minutes on CPU. Token loss improved on held-out data: tune set 2.4318 -> 2.3205, and on the validation split 2.3636 -> 2.2229 (a likelihood fit, not skill). **Forecasting did not improve; primary failed**: validation IC -0.054, 99% CI [-0.211, +0.101] (pretrained -0.062); direction 48.7% vs a 49.0% base rate; path error 0.0119 vs random walk 0.0088 and vs pretrained 0.0108, and the 99% interval for fine-tuned minus pretrained error was [+0.0004, +0.0018], so the fine-tuned model was reliably worse on error. Still anti-correlated with momentum (-0.44). The test split is untouched. Scope: one asset, one recipe (lr 1e-5, 1000 steps, small model); not a verdict on fine-tuning in general.
-- Cross-sectional test (Stage 10; `scripts/stage10_cross_section.py`, rule declared in its header before running): 12 fixed Binance USDT pairs, 1h, 100 non-overlapping 12-hour validation dates, pretrained Kronos-small with the V0 settings. Per date, rank correlation between predicted and actual returns across the 12 assets, averaged over dates. **Primary failed**: Kronos mean IC -0.017, 99% CI [-0.101, +0.076], positive on 45% of dates. The reversal baseline scored -0.003 [-0.094, +0.090] and the momentum baseline +0.003 [-0.090, +0.094], so no signal stood out; Kronos minus reversal was -0.013 [-0.113, +0.093]. Scaling returns by each asset's volatility gave -0.047 [-0.140, +0.043]. Kronos's ranking was again negatively related to momentum (-0.24 across assets). Caveats: survivorship in the hand-picked universe; with 12 assets and 100 dates the interval is about +-0.09 wide, so an IC below roughly 0.09 could not have been detected; one model size, one horizon, one exchange, 3 years. The test split is untouched. The BTC column reused 100 cached forecasts from the earlier Stage 3 run (identical config and origins).
-- Sampling-noise test (Stage 12; `scripts/stage12_samples.py`, rule declared in its header before running): does averaging 20 sampled paths instead of 5 reveal skill? BTC 1h, all 438 non-overlapping validation windows, V0 settings, about 115 minutes of CPU for the 20-path run. **Primary failed**: IC with 20 paths -0.0215, 99% CI [-0.149, +0.118] (5 paths: -0.0387 [-0.169, +0.102]); IC(20) minus IC(5) = +0.017 [-0.029, +0.064]. The 5-path and 20-path end-of-window forecasts correlate +0.953 (Pearson), so the 5-path forecast was already almost all signal, not noise: sampling noise does not explain the earlier results. Direction accuracy 49.3% vs a 48.0% base rate; path error 0.0104 vs random walk 0.0090 (excess error 99% CI [+0.0009, +0.0021], still reliably worse); correlation with momentum -0.53 (the reversal tilt is unchanged). The interval half-width is 0.134, so an IC below that could not have passed; this rules out a large effect, not a small one. The test split is untouched.
-- Daily signal screen (Stage 13a; `scripts/stage13_signal_screen.py`, rule declared in its header before running; engine in `src/kronosquant/portfolio.py`; no model): do simple momentum and reversal signals make money after costs on daily bars? 12 Binance pairs, 5-day rebalance, traded at the next open, 10 bps one-way (assumed), shorts assumed free (optimistic), 99% stationary-block-bootstrap interval, primary window 2019-01-01 to 2025-08-15 (483 periods), the test period cut off at load time. **One of three primary candidates passed**: cross-sectional momentum XSMOM_28 earned +46.7 bps per 5-day period net, 99% interval [+1.0, +105.3] (none of 300 random-signal portfolios did as well). Time-series momentum TSMOM_28 was inconclusive (+66.7 [-18.6, +162.1]) and short-term reversal REV_5 was reliably negative (-47.0 [-89.1, -11.6]), so the Stage 6 contrarian hint did not hold over 2019-2025. **The XSMOM_28 pass is marginal and old**: the interval's lower end is about 1 bp; the mean was about +100 bps per period in 2019-2021 and about +2 bps from 2022 to August 2025; at 20 bps costs the interval includes zero again; the recent window (2025-08 to 2026-03) was -1.1 bps. Long-only momentum (a secondary, not a decision) earned less than an equal-weight buy-and-hold of the same assets (+97.6 vs +129.2 bps), i.e. it was mostly market exposure. Caveats: survivorship bias in the hand-picked universe (direction uncertain for a long/short rank strategy), short borrow and funding costs not modelled, costs assumed, one exchange. The declared follow-up conditions are met only in the letter (positive after 20 bps: +41 bps; positive in 2022 to 2025-08: +2 bps), so Stage 13b (below) was justified but the signal is weak; nothing here is evidence of a tradable edge. The real test period is untouched.
-- Kronos on top of momentum (Stage 13b; `scripts/stage13b_incremental.py`, rule declared in its header before running): does blending the Kronos score with XSMOM_28 beat XSMOM_28 alone? Daily bars, the same 12 pairs, every second 5-day period from 2019-01-01 to 2025-08-12 (242 periods, a compute choice), pretrained Kronos-small with lookback 120, 5 bars ahead, 5 paths (2,813 forecasts, about 18 minutes on CPU; the earlier 3 to 6 hour estimates used the wrong forecast cost), 10 bps assumed, shorts free, 99% block-bootstrap interval. **Primary inconclusive**: blend minus baseline +18.8 bps per period, 99% CI [-32.7, +73.3] (half-width 53 bps, so a gain smaller than that could not have passed). Arms at 10 bps: baseline +6.9 [-46.0, +64.9], blend +25.7 [-30.2, +82.7], Kronos alone -13.7 [-65.9, +35.3], all inconclusive. Rank IC: Kronos +0.032 [-0.021, +0.083], momentum -0.016, blend +0.020; IC difference blend minus momentum +0.036 [-0.011, +0.084]. Kronos and momentum scores are negatively correlated (mean rank correlation -0.11). The paired difference was positive in 2019 to 2022 (+20 to +76 bps) and negative or flat in 2023 to 2025 (-38, -7, -0.2), and the later years are more plausibly outside Kronos's pretraining (its corpus cutoff is not known to me), so this is not evidence that Kronos adds value. Caveats: the baseline is weak on this half schedule and universe (it did not pass here, unlike the full 13a run), the period may be inside Kronos's pretraining data (a pass would only be an upper bound), and the cost model assumes positions are held through the skipped 5 days. Both arms are dollar neutral with gross 1, so the secondary round-trip cost row equals the zero-cost difference and adds nothing. The test split is untouched.
-- Stage 8 (dashboard; `dashboard/app.py`, `dashboard/theme.py`, `dashboard/charts.py`, data prep in `src/kronosquant/dashboard_data.py`, theme in `.streamlit/config.toml`): read-only Streamlit app restyled to a design reference supplied by the owner (navy sidebar with navigation, light content area, white cards, status badges, Inter-style type, palette #3B82F6 / #6366F1 / #10B981 / #F59E0B / #EF4444). Pages: Home (research overview: experiment counts, real strategy-performance curves, recent experiments, primary comparisons as forest plots, distribution of per-window returns), Experiments (every experiment with its outcome), Strategies (paper-account investigation with Overview, Performance, Metrics, Robustness and Details tabs; the Robustness tab sweeps costs and compares limits on versus off), Models (Kronos-small variants against the random walk, pinned revisions), Datasets (inventory with fingerprints, chronological split, test split marked untouched) and Reports (reproducibility: experiment details, code version, reproduce command, result downloads, and the rule declared before running). Results use three states from the declared rule: Passed (the whole 99% interval beat the no-skill value), Failed (reliably on the wrong side) and Inconclusive (the interval includes the no-skill value). Currently 19 primary comparisons: 1 passed (XSMOM_28, marginal; see Stage 13a), 1 reliably worse (REV_5), 17 inconclusive, i.e. for most tests the data could not distinguish skill from luck either way. The reference mock-up's numbers are placeholders and are not used; every figure comes from a result file or a live paper-account run. `scripts/export_equity_curves.py` saves the Home curves and checks them against the saved Stage 6 results (Kronos -47.73%, momentum -51.25%, buy and hold -41.56% at 10 bps). It never loads the test split (`validation_candles` is the only price-data path, tested), runs no model, and trades nothing. Run: `.venv/bin/python -I -m streamlit run dashboard/app.py` (restart after editing `theme.py` or `charts.py`; Streamlit does not reload imported modules here). Checked in the browser pane at a 1440px viewport. 139 tests pass in total; the dashboard tests cover the data prep and build the figures from synthetic data, not the pixel layout. Result files live in git-ignored `outputs/`, so a fresh clone shows empty pages until the scripts are run.
-- Volatility test (Stage 11; `scripts/stage11_volatility.py`, rule declared in its header before running; cached Stage 10 forecasts, no model run): does Kronos forecast the next 12 hours' mean candle range (high-low over close) better than three simple baselines? Primary = the 11 non-BTC assets (BTC volatility had already been looked at), error |log(forecast/realized)|, bootstrap over dates, 99% interval, PASS only if Kronos beats all three baselines. **Primary failed**: mean error Kronos 0.307 vs 0.319 (history average), 0.288 (last 48 bars), 0.315 (same hour of day); Kronos minus baseline -0.012 [-0.049, +0.027], +0.019 [-0.020, +0.053], -0.008 [-0.049, +0.031]. Every interval includes 0, and Kronos had the lowest error on 0 of 12 assets. Kronos does track volatility (rank IC +0.49 averaged over assets), but the last-48-bars baseline tracks it at least as well (+0.54), so the model adds nothing over a one-line rule. Kronos forecasts ran about 10% too high on average (mean log ratio +0.03 to +0.15 per asset); no rescaling was done, since that would be fitted on validation data. Caveats: the interval is about +-0.04 in log error, so differences smaller than that could not be seen; one model size, one horizon, one exchange, 3 years; windows and the universe are the Stage 10 ones. The test split is untouched.
-- Stage 7 (paper-trading simulator; `src/kronosquant/paper.py`, `scripts/stage7_paper_demo.py`): a bar-by-bar simulated account with fixed risk limits (max position, max order size per bar, daily-loss halt that resets next day, permanent drawdown kill switch). The strategy is a plain function that sees a copy of the past and returns a wish; the risk layer decides what is traded, and forced exits are never blocked by the order-size limit. Simulated fills only: no broker, no keys, no network. With no limit binding it reproduces `run_backtest` exactly (tested to 1e-12), and the demo's always-long run on BTC validation gives -41.56%, matching the Stage 6 buy-and-hold figure. 11 new tests; three safety rules were mutation-checked (look-ahead, kill-switch reset, order limit blocking exits). Caveats: a halt flattens at the NEXT open, so losses can overshoot a limit (the demo's 15% drawdown limit saw -15.1%); the limit values and 10 bps costs in the demo are round numbers, not verified Binance costs; the demo strategies are placeholders, and smaller losses with limits mostly mean it stopped trading in a falling market, not that it found skill. No live trading exists or is planned.
-- Stage 5 (backtest engine): done. 59 tests pass; the look-ahead (execution lag) rule was mutation-checked. The engine is tested, not any strategy: the demo signals are trivial and the cost numbers are placeholders.
-- Stage 4 (resumable forecast cache): done. 44 tests pass. Re-running the same 100 CPU windows through the cache reproduced the earlier Stage 3 numbers bit-for-bit, and a second run computed 0 forecasts (about 3s total instead of about 7.5 minutes).
-- Later stages: data layer, baselines, evaluation, walk-forward harness, backtester, strategy research, paper trading, Streamlit dashboard.
+> **Research and paper trading only.** Nothing here places real orders or uses real money, and nothing is investment advice. A forecast is not a trading signal.
+
+## What the research has found so far
+
+Nineteen comparisons were declared before they were run, and the results were read against the declared rule. In short:
+
+| Question | Result |
+|---|---|
+| Does Kronos-small forecast BTC better than "the price stays put"? | **No.** Its error was higher than the random walk in every setting tried, and the difference was statistically clear. Its rank correlation with outcomes (IC) ranged from -0.07 to +0.10, always with an interval that included zero. |
+| Does fine-tuning, a different temperature, or averaging more samples help? | **No.** Fine-tuning improved the model's fit to the data (its loss) but not its forecasts. 20 sampled paths instead of 5 changed nothing measurable. |
+| Can it rank 12 crypto assets better than chance? | **Not shown.** IC -0.017, 99% interval [-0.101, +0.076]. |
+| Can it forecast volatility better than a one-line rule? | **Not shown.** It did not reliably beat any of three simple baselines, and a one-line "recent volatility" rule tracked volatility at least as well. |
+| Does trading its forecasts make money after costs? | **No, in this period.** Kronos long/short lost 47.7% net at 10 bps in a market that fell 41.6%. |
+| Do simple momentum rules work on daily bars? | **One marginal pass.** Cross-sectional momentum earned +46.7 bps per 5 days, but the lower end of its interval is about +1 bp, almost all of the gain came before 2022, and at 20 bps its interval includes zero. |
+| Does Kronos add anything on top of that momentum rule? | **Inconclusive.** +18.8 bps per period, 99% interval [-32.7, +73.3]. |
+
+**Bottom line:** there is no evidence here that Kronos has a usable trading edge. That is not the same as proof that it has none: most of the tests were too small to detect a modest effect, so most results are "inconclusive" rather than "reliably wrong". The full numbers and caveats are in [docs/EXPERIMENT_LOG.md](docs/EXPERIMENT_LOG.md).
+
+## How it works
+
+```
+Binance public candles ──> validated data ──> chronological split (train / validation / sealed test)
+                                                        │
+              Kronos forecasts (cached, seeded) ────────┤
+              simple baselines (random walk, momentum) ─┤
+                                                        ▼
+                 forecast quality (IC, error, direction)  ──>  trading simulation (fees, slippage)
+                                                        ▼
+                          paper account with risk limits  ──>  dashboard
+```
+
+The rules that keep the results honest:
+
+- **Baselines first.** Every model result is shown next to a simple rule it has to beat.
+- **No peeking.** Splits are chronological. Tests poison future data to prove no forecast or signal can see it.
+- **Rules before results.** Each experiment script states its pass/fail rule in its header before it runs, and the header is not edited afterwards.
+- **Forecast quality and profit are judged separately.** A forecast can be good and unprofitable, or the reverse.
+- **Costs always.** Every backtest charges fees. The cost figures are round-number assumptions, not verified exchange fees.
+- **The test split stays sealed** until something passes on validation, and then it is opened once.
+- **Failures stay in.** Nothing is removed or re-run to look better.
 
 ## Quick start
+
+You need Python 3.12 (managed with [uv](https://docs.astral.sh/uv/)), several GB of disk (PyTorch is the largest part), and no API keys.
+
 ```bash
 uv venv --python 3.12 .venv
 uv pip install --python .venv/bin/python -r requirements.txt
 scripts/setup_kronos.sh
+```
+
+Run the tests (about 40 seconds):
+
+```bash
+.venv/bin/python -I -m pytest
+```
+
+Download market data (public, no keys; `data/` is not committed) and make a first forecast on the CPU:
+
+```bash
+.venv/bin/python -I scripts/fetch_binance.py --symbol BTCUSDT --interval 1h --years 3 --end 2026-10-28
 .venv/bin/python -I scripts/first_forecast.py --device cpu
 ```
 
-## Caveat for Stage 1
-One forecast from one window proves nothing about skill. Kronos may also have seen this stock during pretraining, so even a good-looking result on the sample data would not be out-of-sample evidence.
+Open the dashboard:
+
+```bash
+.venv/bin/python -I -m streamlit run dashboard/app.py
+```
+
+Result files live in `outputs/` and are not committed, so a fresh clone shows empty pages until you run the experiments. Each experiment's exact command is on the dashboard's **Reports** page. Forecasts are cached, so rerunning an experiment reproduces its saved numbers, and long runs resume where they stopped.
+
+## The dashboard
+
+| Page | What it shows |
+|---|---|
+| Home | A summary of the evidence, headline counts, strategy curves and every primary comparison with its 99% interval |
+| Experiments | Every experiment, its outcome under the declared rule, and the caveats that go with a pass |
+| Strategies | A paper account you can configure (fees, position limits, kill switch) and run on placeholder strategies |
+| Models | Kronos-small variants against the random walk, with pinned model revisions |
+| Datasets | Downloaded data, row counts, gaps, fingerprints and the chronological split |
+| Reports | How to reproduce each experiment, its declared rule, downloadable results and a glossary |
+
+The dashboard only reads result files and runs the paper account on the validation split. It never loads the test split, runs no model and trades nothing.
+
+## Repository layout
+
+```
+src/kronosquant/     the library
+  config.py            shared settings: asset universe, Kronos default settings, confidence level
+  data.py, splits.py   validated candles; chronological splits and windows
+  forecast.py, cache.py  Kronos inference (pinned revisions) and the resumable forecast cache
+  baselines.py, metrics.py, evaluation.py, crosssection.py, volatility.py   scoring and statistics
+  backtest.py, strategy.py, portfolio.py, paper.py   trading simulations and the risk-limited paper account
+  finetune.py          optional fine-tuning loop
+  experiments.py, dashboard_data.py, glossary.py   what the dashboard reads
+scripts/             one runnable script per experiment (rule declared in each header)
+dashboard/           Streamlit app: app.py, views/ (one file per page), common.py, theme.py, charts.py
+tests/               pytest suite
+docs/                EXPERIMENT_LOG.md (all results) and PRODUCT_CONTEXT.md (product thinking)
+vendor/              upstream Kronos is cloned here by setup_kronos.sh (not committed)
+```
+
+## Limitations
+
+- **Small samples.** Many tests have too few windows to detect a modest effect, which is why most results read "inconclusive". The interval half-widths are printed with each result.
+- **Costs are assumed.** 10 bps one-way is a round number. Real Binance fees, slippage and the cost of shorting are not modelled or verified.
+- **Survivorship bias.** The 12-asset universe was picked from assets that exist today.
+- **One exchange, one model size, a few horizons.** Results do not generalise to other markets, to Kronos-base, or to other settings.
+- **Possible pretraining overlap.** Kronos may have seen parts of the historical data it is tested on, so even a good result on that period would be an upper bound. Only a failure is decisive there.
+- **Hardware.** All runs used CPU on an 8 GB laptop, which limits model size and the number of forecasts.
+- **Not a product yet.** There is no live data feed and no broker integration, by design.
+
+## More documentation
+
+- [docs/EXPERIMENT_LOG.md](docs/EXPERIMENT_LOG.md): every experiment, rule, number and caveat.
+- [docs/PRODUCT_CONTEXT.md](docs/PRODUCT_CONTEXT.md): market research, viability and where this could go.
+- [CLAUDE.md](CLAUDE.md): working rules and technical notes for contributors and coding assistants.
+
+The upstream Kronos code and models are MIT-licensed by their authors. This repository does not yet include a licence file of its own.

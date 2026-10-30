@@ -8,7 +8,8 @@ import numpy as np
 import pandas as pd
 import torch
 
-ROOT = Path(__file__).resolve().parents[2]
+from kronosquant.config import ROOT  # ROOT lives in config so model-free code can use it; re-exported here
+
 sys.path.insert(0, str(ROOT / "vendor" / "Kronos"))  # upstream repo is cloned, not pip-installed
 
 from kronosquant.cache import data_fingerprint  # noqa: E402
@@ -75,6 +76,31 @@ def load_predictor(device: str = "cpu", checkpoint_dir: Path | None = None) -> K
     tokenizer.eval()
     model.eval()
     return KronosPredictor(model, tokenizer, device=device, max_context=MAX_CONTEXT)
+
+
+_PREDICTORS: dict = {}
+
+
+def get_predictor(device: str = "cpu", checkpoint_dir: Path | None = None) -> KronosPredictor:
+    """`load_predictor`, but each (device, checkpoint) is loaded once per process and then reused."""
+    key = (device, str(checkpoint_dir))
+    if key not in _PREDICTORS:
+        _PREDICTORS[key] = load_predictor(device, checkpoint_dir)
+    return _PREDICTORS[key]
+
+
+def make_forecaster(candles: pd.DataFrame, device: str = "cpu", *, T: float, top_p: float, sample_count: int, top_k: int = 0, checkpoint_dir: Path | None = None):
+    """Return `forecast(window) -> DataFrame` for use with `run_walk_forward`.
+
+    The model is loaded lazily, on the first window that is not already in the cache, so a fully cached run never touches PyTorch weights.
+    The seed is the window origin, which is what `forecast_config` records as the seed policy.
+    """
+
+    def forecast(window) -> pd.DataFrame:
+        predictor = get_predictor(device, checkpoint_dir)
+        return forecast_window(predictor, candles, window.origin, window.lookback, window.pred_len, seed=window.origin, T=T, top_p=top_p, top_k=top_k, sample_count=sample_count)
+
+    return forecast
 
 
 def forecast_window(

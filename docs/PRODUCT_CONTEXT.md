@@ -2,7 +2,7 @@
 
 Written 2026-10-30. This file collects everything known about the project's goal, evidence, market research, viability and plan, so that someone (or a new session) can pick it up without the chat history. It states what is measured, what is researched, and what is only a judgement. Nothing here is financial advice.
 
-> The repo is public. This file is **not committed**; decide whether strategy notes belong in a public repo before adding it.
+> The repo is public and this file is committed to it, so everything here is readable by anyone. Remove or trim sections (market research, viability, plans) if you do not want them public.
 
 ---
 
@@ -71,7 +71,7 @@ Known limits:
 
 ## 4. Results so far (all on the validation split; none passed)
 
-**Scorecard: 1 of 19 pre-declared primary comparisons passed** (5 grid variants, the Stage 6 strategy, 1 fine-tune, 4 cross-section signals, 3 volatility baselines, 3 daily signals, the 20-path test, the Stage 13b blend). The one pass is the marginal Stage 13a candidate XSMOM_28; one comparison (REV_5) is reliably worse; the other 17 are Inconclusive. Read with the dashboard's three states, **all 15 Kronos-related comparisons are Inconclusive**: none passed and none was reliably worse, because the tests lacked the power to tell skill from luck either way (the secondary results, such as path error reliably above the random walk, are separate).
+**Scorecard: 1 of 19 pre-declared primary comparisons passed** (5 grid variants, the Stage 6 strategy, 1 fine-tune, 4 cross-section signals, 3 volatility baselines, 3 daily signals, the 20-path test, the Stage 13b blend). The one pass is the marginal Stage 13a candidate XSMOM_28; one comparison (REV_5) is reliably worse; the other 17 are Inconclusive. Read with the dashboard's three states, **all 16 comparisons in the Kronos experiments are Inconclusive**: none passed and none was reliably worse, because the tests lacked the power to tell skill from luck either way (the secondary results, such as path error reliably above the random walk, are separate).
 
 | Test | Headline (99% intervals) |
 |---|---|

@@ -24,12 +24,11 @@ from kronosquant.cache import ForecastCache, run_walk_forward  # noqa: E402
 from kronosquant.data import load_candles  # noqa: E402
 from kronosquant.evaluation import actual_paths, baseline_paths, paths_from_forecasts, select_windows  # noqa: E402
 from kronosquant.finetune import evaluate_loss, prepare_arrays, window_starts  # noqa: E402
-from kronosquant.forecast import ROOT, forecast_config, forecast_window, load_predictor  # noqa: E402
+from kronosquant.config import CONFIDENCE_LEVEL as LEVEL, KRONOS_V0 as V0, ROOT  # noqa: E402
+from kronosquant.forecast import forecast_config, make_forecaster  # noqa: E402
 from kronosquant.metrics import bootstrap_ic_ci, directional_accuracy, information_coefficient, paired_bootstrap_ci, path_mae  # noqa: E402
 from kronosquant.splits import chronological_split  # noqa: E402
 
-V0 = dict(lookback=400, pred_len=12, T=1.0, top_p=0.9, top_k=0, sample_count=5)  # same values as stage3_grid.py V0_baseline
-LEVEL = 0.99
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--csv", default="data/BTCUSDT_1h.csv")
@@ -48,14 +47,7 @@ ckpt = ROOT / args.checkpoint
 windows = select_windows(candles, split, V0["lookback"], V0["pred_len"], args.windows, args.bar)
 config = forecast_config(candles, args.device, V0["lookback"], V0["pred_len"], V0["T"], V0["top_p"], V0["sample_count"], V0["top_k"], checkpoint_dir=ckpt)
 cache = ForecastCache(ROOT / "outputs" / "cache", config)
-predictor = None
-
-
-def forecast_one(w):
-    global predictor
-    if predictor is None:
-        predictor = load_predictor(args.device, ckpt)
-    return forecast_window(predictor, candles, w.origin, w.lookback, w.pred_len, seed=w.origin, T=V0["T"], top_p=V0["top_p"], sample_count=V0["sample_count"])
+forecast_one = make_forecaster(candles, args.device, T=V0["T"], top_p=V0["top_p"], sample_count=V0["sample_count"], top_k=V0["top_k"], checkpoint_dir=ckpt)
 
 
 t0 = time.time()
