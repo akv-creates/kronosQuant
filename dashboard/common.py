@@ -1,5 +1,6 @@
 """Helpers shared by every dashboard page: paths, cached data loaders, number formatting and friendly error handling."""
 import functools
+import logging
 import os
 import sys
 from pathlib import Path
@@ -99,7 +100,9 @@ def guarded(render):
         except DataError as err:
             st.error(f"The market data failed its safety checks, so nothing was drawn: {err}. Download the file again to fix it.")
         except Exception as err:  # noqa: BLE001  last-resort screen for a research tool
-            st.error("Something unexpected went wrong while building this page. The research results themselves are not affected.")
+            logging.getLogger("kronosquant").exception("page failed: %s", render.__module__)  # full traceback goes to the server log, never to visitors
+            kind = f" (error type: {type(err).__name__})" if PUBLIC_MODE else ""
+            st.error(f"Something unexpected went wrong while building this page. The research results themselves are not affected.{kind}")
             if not PUBLIC_MODE:
                 with st.expander("Technical details"):
                     st.exception(err)
